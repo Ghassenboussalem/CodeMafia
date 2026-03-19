@@ -9,43 +9,62 @@ export function AuthProvider({ children }) {
   const [stats,   setStats]   = useState(null);
   const [loading, setLoading] = useState(true);
 
-  // Load user from stored token on mount
+  async function loadMe() {
+    try {
+      const { user, xp, stats } = await api.get('/auth/me');
+      setUser(user);
+      setXp(xp);
+      setStats(stats);
+      return user;
+    } catch {
+      localStorage.removeItem('cm_token');
+      return null;
+    }
+  }
+
   useEffect(() => {
-    const token = localStorage.getItem('cm_token');
-    if (token) {
-      api.get('/auth/me')
-        .then(({ user, xp, stats }) => {
-          setUser(user);
-          setXp(xp);
-          setStats(stats);
-        })
-        .catch(() => {
-          localStorage.removeItem('cm_token');
-        })
-        .finally(() => setLoading(false));
-    } else {
+    // Check for Google OAuth token in URL query params
+    // This is how Google callback lands back on the frontend
+    const params = new URLSearchParams(window.location.search);
+    const authToken = params.get('auth_token');
+    const isNewUser = params.get('new_user') === '1';
+    const authError = params.get('auth_error');
+
+    if (authError) {
+      // Clean URL and show error
+      window.history.replaceState({}, '', window.location.pathname);
       setLoading(false);
+      return;
     }
 
-    // Handle Google OAuth callback — token comes back in URL hash
-    const hash = window.location.hash;
-    if (hash.startsWith('#token=')) {
-      const token = hash.slice(7);
-      localStorage.setItem('cm_token', token);
-      window.location.hash = '';
-      api.get('/auth/me')
-        .then(({ user, xp, stats }) => {
-          setUser(user);
-          setXp(xp);
-          setStats(stats);
-        })
-        .catch(() => localStorage.removeItem('cm_token'))
-        .finally(() => setLoading(false));
+    if (authToken) {
+      // Store token and clean URL immediately
+      localStorage.setItem('cm_token', authToken);
+      window.history.replaceState({}, '', window.location.pathname);
+
+      loadMe().then((user) => {
+        if (user && isNewUser && !user.profile_complete) {
+          // Will be picked up by useGameStore screen routing
+          window.__needsProfileSetup = true;
+        }
+        setLoading(false);
+      });
+      return;
+    }
+
+    // Normal startup — check stored token
+    const stored = localStorage.getItem('cm_token');
+    if (stored) {
+      loadMe().finally(() => setLoading(false));
+    } else {
+      setLoading(false);
     }
   }, []);
 
   const register = useCallback(async ({ email, password, username, role }) => {
-    const { user, token } = await api.post('/auth/register', { email, password, username, role });
+    const { user, token } = await api.post('/auth/register', {
+      email, password, username, role,
+    });
     localStorage.setItem('cm_token', token);
     setUser(user);
     return user;
@@ -55,7 +74,6 @@ export function AuthProvider({ children }) {
     const { user, token } = await api.post('/auth/login', { email, password });
     localStorage.setItem('cm_token', token);
     setUser(user);
-    // Refresh full profile
     const { xp, stats } = await api.get('/auth/me');
     setXp(xp);
     setStats(stats);
@@ -64,6 +82,12 @@ export function AuthProvider({ children }) {
 
   const loginWithGoogle = useCallback(() => {
     window.location.href = `${import.meta.env.VITE_SERVER_URL}/auth/google`;
+  }, []);
+
+  const completeProfile = useCallback(async ({ username, role }) => {
+    const { user: updated } = await api.post('/auth/complete-profile', { username, role });
+    setUser(updated);
+    return updated;
   }, []);
 
   const logout = useCallback(async () => {
@@ -96,10 +120,12 @@ export function AuthProvider({ children }) {
   return (
     <AuthContext.Provider value={{
       user, xp, stats, loading,
-      register, login, loginWithGoogle, logout,
+      register, login, loginWithGoogle,
+      completeProfile, logout,
       refreshProfile, upgradeToPro, openBillingPortal,
       isLoggedIn: !!user,
       isPro: user?.tier === 'pro',
+      needsProfileSetup: user && user.profile_complete === false,
     }}>
       {children}
     </AuthContext.Provider>

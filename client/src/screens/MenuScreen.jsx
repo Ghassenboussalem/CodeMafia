@@ -85,6 +85,16 @@ export default function MenuScreen() {
         >
           🏆 LEADERBOARD
         </button>
+        <button
+          className="btn-big"
+          onClick={() => setScreen('help')}
+          style={{
+            background: '#16a085', color: '#fff',
+            boxShadow: '4px 4px 0 #0a6050', border: '3px solid #0a6050',
+          }}
+        >
+          ❓ HOW TO PLAY
+        </button>
       </div>
 
       <div className="bottom-hint">3–5 Players • Find the Impostor</div>
