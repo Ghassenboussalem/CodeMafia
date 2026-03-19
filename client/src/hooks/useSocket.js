@@ -1,72 +1,97 @@
-// client/src/hooks/useSocket.js
-
 import { useEffect, useRef } from 'react';
 import socket from '../socket';
 import useGameStore from '../store/gameStore';
 import { getChallengeForRound } from '../utils/challenges';
 
 export default function useSocket() {
-  const savedCode = useRef(null);
-  const savedName = useRef(null);
+  const autoRejoinAttempted = useRef(false);
 
   useEffect(() => {
-    // ── Connection ───────────────────────────────────────────────────
+    // ── Connection ────────────────────────────────────────────────────
     socket.on('connect', () => {
-      useGameStore.getState().setConnected(true);
-      useGameStore.getState().setMyId(socket.id);
-      const { reconnecting, room } = useGameStore.getState();
-      if (reconnecting && savedCode.current && savedName.current) {
-        socket.emit('reconnect_room', { code: savedCode.current, name: savedName.current });
+      const s = useGameStore.getState();
+      s.setConnected(true);
+      s.setMyId(socket.id);
+
+      // Auto-attempt rejoin on reconnect if we have saved info
+      if (s.rejoinInfo && !autoRejoinAttempted.current) {
+        autoRejoinAttempted.current = true;
+        socket.emit('rejoin_room', {
+          code: s.rejoinInfo.code,
+          name: s.rejoinInfo.name,
+          rejoinToken: s.rejoinInfo.rejoinToken,
+        });
       }
     });
 
     socket.on('disconnect', () => {
-      const state = useGameStore.getState();
-      state.setConnected(false);
-      if (['game', 'voting_players', 'emergency', 'spectator'].includes(state.screen)) {
-        state.setReconnecting(true);
-        savedCode.current = state.room?.code || null;
-        savedName.current = state.room?.players?.find((p) => p.id === socket.id)?.name || null;
+      const s = useGameStore.getState();
+      s.setConnected(false);
+
+      // If mid-game, save rejoin info and go to rejoin screen
+      if (['game', 'voting_players', 'emergency', 'spectator'].includes(s.screen)) {
+        const me = s.room?.players?.find((p) => p.id === socket.id);
+        if (me && s.rejoinToken && s.room) {
+          s.setRejoinInfo({
+            code: s.room.code,
+            name: me.name,
+            rejoinToken: s.rejoinToken,
+          });
+          s.setScreen('rejoin');
+          autoRejoinAttempted.current = false;
+        }
       }
     });
 
-    // ── Reconnect ────────────────────────────────────────────────────
-    socket.on('reconnected', ({ room, role, currentRound, category }) => {
+    // ── Rejoin ────────────────────────────────────────────────────────
+    socket.on('rejoined', ({ room, role, currentRound, category, testsPassed, sabotagesDone }) => {
       const s = useGameStore.getState();
-      s.setReconnecting(false);
+      const challenge = getChallengeForRound(category, currentRound);
       s.setRoom(room);
       s.setMyRole(role);
       s.setChosenCategory(category);
       s.setCurrentRound(currentRound);
-      const challenge = getChallengeForRound(category, currentRound);
       s.setCodeLines([...challenge.code]);
       s.setTestNames(challenge.tests.map((t) => t.name));
       s.setSabotages(challenge.sabotages);
+      s.setTestsPassed(testsPassed || 0);
+      s.setSabotagesDone(sabotagesDone || 0);
+      s.setRejoinInfo(null);
       s.setScreen('game');
+      autoRejoinAttempted.current = false;
     });
 
-    socket.on('player_reconnected', ({ room }) => {
+    socket.on('rejoin_failed', ({ message }) => {
+      console.warn('Rejoin failed:', message);
+      // RejoinScreen handles this event directly
+    });
+
+    socket.on('player_rejoined', ({ room, name }) => {
+      useGameStore.getState().setRoom(room);
+    });
+
+    // ── Kicked ────────────────────────────────────────────────────────
+    socket.on('you_were_kicked', () => {
+      const s = useGameStore.getState();
+      s.resetGame();
+      s.setScreen('kicked');
+    });
+
+    // ── Lobby ─────────────────────────────────────────────────────────
+    socket.on('room_created', ({ room, rejoinToken }) => {
       const s = useGameStore.getState();
       s.setRoom(room);
-      const lastPlayer = room.players[room.players.length - 1];
-      if (lastPlayer) s.removeDisconnectedPlayer(lastPlayer.id);
+      s.setRejoinToken(rejoinToken);
+      s.setScreen('lobby');
     });
 
-    socket.on('player_disconnected', ({ playerId, room }) => {
+    socket.on('room_joined', ({ room, rejoinToken }) => {
       const s = useGameStore.getState();
       s.setRoom(room);
-      s.addDisconnectedPlayer(playerId);
+      s.setRejoinToken(rejoinToken);
+      s.setScreen('lobby');
     });
 
-    // ── Lobby ────────────────────────────────────────────────────────
-    socket.on('room_created',  ({ room }) => {
-      useGameStore.getState().setRoom(room);
-      useGameStore.getState().setScreen('lobby');
-    });
-    socket.on('room_joined',   ({ room }) => {
-      useGameStore.getState().setRoom(room);
-      useGameStore.getState().setScreen('lobby');
-    });
     socket.on('room_updated',  ({ room }) => useGameStore.getState().setRoom(room));
     socket.on('player_joined', ({ room }) => useGameStore.getState().setRoom(room));
     socket.on('player_left',   ({ room }) => {
@@ -75,7 +100,7 @@ export default function useSocket() {
       s.setAliveCount(room.players.length);
     });
 
-    // ── Category Vote ────────────────────────────────────────────────
+    // ── Category Vote ─────────────────────────────────────────────────
     socket.on('vote_start', ({ categories, duration }) => {
       const s = useGameStore.getState();
       const counts = {};
@@ -88,18 +113,18 @@ export default function useSocket() {
     });
     socket.on('vote_tick',           ({ seconds }) => useGameStore.getState().setVoteSecondsLeft(seconds));
     socket.on('vote_counts_updated', ({ counts })  => useGameStore.getState().setCategoryVoteCounts(counts));
-    socket.on('vote_end',            ({ winner })  => {
+    socket.on('vote_end', ({ winner }) => {
       useGameStore.getState().setChosenCategory(winner);
       useGameStore.getState().setScreen('assigning');
     });
 
-    // ── Role Reveal ──────────────────────────────────────────────────
+    // ── Role ──────────────────────────────────────────────────────────
     socket.on('role_assigned', ({ role }) => {
       useGameStore.getState().setMyRole(role);
       useGameStore.getState().setScreen('role_reveal');
     });
 
-    // ── Game Start / Rounds ──────────────────────────────────────────
+    // ── Game ──────────────────────────────────────────────────────────
     function loadRound(category, round) {
       const challenge = getChallengeForRound(category, round);
       const s = useGameStore.getState();
@@ -112,11 +137,15 @@ export default function useSocket() {
       s.setRoundSecondsLeft(60);
     }
 
-    socket.on('game_start', ({ category, round }) => {
+    socket.on('game_start', ({ category, round, settings }) => {
       const s = useGameStore.getState();
       loadRound(category, round);
       s.setAliveCount(s.room?.players?.length || 0);
       s.setDisconnectedPlayerIds([]);
+      if (settings) {
+        const room = s.room;
+        if (room) s.setRoom({ ...room, settings });
+      }
       s.setScreen('game');
     });
 
@@ -127,19 +156,15 @@ export default function useSocket() {
       s.setMyPlayerVote(null);
       s.setVotingPlayers([]);
       s.setEmergencyCaller(null);
-      // Keep spectators on spectator screen — only active players go back to game
       if (s.screen !== 'spectator') s.setScreen('game');
     });
 
     socket.on('round_tick', ({ seconds }) => useGameStore.getState().setRoundSecondsLeft(seconds));
 
-    // ── Code Sync ────────────────────────────────────────────────────
-    // All players (including spectators) receive code changes
     socket.on('code_change', ({ lineIndex, content }) => {
       useGameStore.getState().updateCodeLine(lineIndex, content);
     });
 
-    // ── Tests ────────────────────────────────────────────────────────
     socket.on('tests_updated', ({ testsPassed, total, results }) => {
       const s = useGameStore.getState();
       s.setTestsPassed(testsPassed);
@@ -147,12 +172,11 @@ export default function useSocket() {
       if (results) s.setTestNames(results.map((r) => r.name));
     });
 
-    // ── Sabotage ─────────────────────────────────────────────────────
     socket.on('sabotage_confirmed', ({ sabotagesDone }) => {
       useGameStore.getState().setSabotagesDone(sabotagesDone);
     });
 
-    // ── Emergency ────────────────────────────────────────────────────
+    // ── Emergency ─────────────────────────────────────────────────────
     socket.on('emergency_called', ({ calledBy }) => {
       useGameStore.getState().setEmergencyCaller(calledBy);
     });
@@ -168,7 +192,6 @@ export default function useSocket() {
     socket.on('vote_tick_player', ({ seconds }) => {
       useGameStore.getState().setVoteSecondsLeftPlayer(seconds);
     });
-    socket.on('vote_recorded', () => {});
 
     socket.on('vote_result', ({ eliminated }) => {
       const s = useGameStore.getState();
@@ -183,22 +206,65 @@ export default function useSocket() {
       }
     });
 
-    // ── Eliminated → Spectator ───────────────────────────────────────
+    // ── Eliminated ────────────────────────────────────────────────────
     socket.on('you_were_eliminated', () => {
       const s = useGameStore.getState();
       s.setIsSpectator(true);
       s.setScreen('spectator');
     });
 
-    // ── Chat ─────────────────────────────────────────────────────────
+    // ── Disconnect tracking ───────────────────────────────────────────
+    socket.on('player_disconnected', ({ playerId, room }) => {
+      const s = useGameStore.getState();
+      s.setRoom(room);
+      s.addDisconnectedPlayer(playerId);
+    });
+
+    socket.on('player_reconnected', ({ room }) => {
+      useGameStore.getState().setRoom(room);
+    });
+
+    // ── Chat ──────────────────────────────────────────────────────────
     socket.on('message_received', (msg) => useGameStore.getState().addChatMessage(msg));
 
+    // ── Settings ──────────────────────────────────────────────────────
+    socket.on('settings_updated', ({ settings }) => {
+      const s = useGameStore.getState();
+      const room = s.room;
+      if (room) s.setRoom({ ...room, settings });
+    });
+
+    // ── Server Browser ────────────────────────────────────────────────
+    socket.on('public_rooms', ({ rooms }) => {
+      useGameStore.getState().setPublicRooms(rooms);
+    });
+
+    // ── Spectating ────────────────────────────────────────────────────
+    socket.on('spectating', ({ room }) => {
+      const s = useGameStore.getState();
+      s.setRoom(room);
+      s.setIsSpectator(true);
+      s.setScreen('spectator');
+    });
+
+    socket.on('spectator_joined', ({ spectatorCount }) => {
+      const s = useGameStore.getState();
+      const room = s.room;
+      if (room) s.setRoom({ ...room, spectatorCount });
+    });
+
+    socket.on('spectator_left', ({ spectatorCount }) => {
+      const s = useGameStore.getState();
+      const room = s.room;
+      if (room) s.setRoom({ ...room, spectatorCount });
+    });
+
     // ── Game Over ─────────────────────────────────────────────────────
-    // Spectators also receive game_over and get redirected
     socket.on('game_over', (data) => {
       const s = useGameStore.getState();
       s.setGameOverData(data);
       s.setIsSpectator(false);
+      s.setRejoinInfo(null);
       s.setScreen('game_over');
     });
 
@@ -213,13 +279,17 @@ export default function useSocket() {
 
     return () => {
       [
-        'connect', 'disconnect', 'reconnected', 'player_reconnected', 'player_disconnected',
+        'connect', 'disconnect',
         'room_created', 'room_joined', 'room_updated', 'player_joined', 'player_left',
+        'rejoined', 'rejoin_failed', 'player_rejoined', 'you_were_kicked',
         'vote_start', 'vote_tick', 'vote_counts_updated', 'vote_end',
         'role_assigned', 'game_start', 'round_start', 'round_tick',
         'code_change', 'tests_updated', 'sabotage_confirmed',
-        'emergency_called', 'voting_start', 'vote_tick_player', 'vote_recorded', 'vote_result',
-        'you_were_eliminated', 'message_received', 'game_over', 'game_abandoned', 'error',
+        'emergency_called', 'voting_start', 'vote_tick_player', 'vote_result',
+        'you_were_eliminated', 'player_disconnected', 'player_reconnected',
+        'message_received', 'game_over', 'game_abandoned', 'error',
+        'settings_updated', 'public_rooms',
+        'spectating', 'spectator_joined', 'spectator_left',
       ].forEach((ev) => socket.off(ev));
     };
   }, []);

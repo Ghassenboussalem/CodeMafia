@@ -1,6 +1,5 @@
 const { getRoom, saveRoom, removeRoom } = require('../rooms/roomManager');
 
-// Track active round timers keyed by roomCode
 const roomTimers = new Map();
 
 function clearRoomTimers(code) {
@@ -11,8 +10,9 @@ function clearRoomTimers(code) {
 }
 
 function startRoundTimer(io, room) {
-  const { ROUND_DURATION, evaluateRoundEnd } = require('./engine');
-  let seconds = ROUND_DURATION;
+  const { getRoundDuration, evaluateRoundEnd } = require('./engine');
+  const duration = getRoundDuration(room);
+  let seconds = duration;
 
   clearRoomTimers(room.code);
 

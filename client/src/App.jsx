@@ -1,5 +1,3 @@
-// client/src/App.jsx
-
 import React from 'react';
 import useSocket from './hooks/useSocket';
 import useGameStore from './store/gameStore';
@@ -8,11 +6,14 @@ import MenuScreen from './screens/MenuScreen';
 import CreateScreen from './screens/CreateScreen';
 import JoinScreen from './screens/JoinScreen';
 import LobbyScreen from './screens/LobbyScreen';
+import ServerBrowserScreen from './screens/ServerBrowserScreen';
 import VoteCategoryScreen from './screens/VoteCategoryScreen';
 import AssigningScreen from './screens/AssigningScreen';
 import RoleRevealScreen from './screens/RoleRevealScreen';
 import GameScreen from './screens/GameScreen';
 import SpectatorScreen from './screens/SpectatorScreen';
+import RejoinScreen from './screens/RejoinScreen';
+import KickedScreen from './screens/KickedScreen';
 import GameOverScreen from './screens/GameOverScreen';
 
 function SkyBackground() {
@@ -38,21 +39,17 @@ function ReconnectingOverlay() {
     }}>
       <div style={{
         fontFamily: "'Press Start 2P', monospace", fontSize: 18,
-        color: '#f5a623', letterSpacing: 2, animation: 'pulse 1.2s ease-in-out infinite',
+        color: '#f5a623', letterSpacing: 2,
+        animation: 'pulse 1.2s ease-in-out infinite',
       }}>
         RECONNECTING...
       </div>
-      <div style={{
-        fontFamily: "'VT323', monospace", fontSize: 20, color: '#aaa', letterSpacing: 2,
-      }}>
-        Please wait up to 15 seconds
-      </div>
-      <style>{`@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }`}</style>
+      <style>{`@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.3}}`}</style>
     </div>
   );
 }
 
-const SKY_SCREENS = ['menu', 'create', 'join', 'lobby', 'vote_category', 'game_over'];
+const SKY_SCREENS = ['menu', 'create', 'join', 'lobby', 'browser', 'vote_category', 'game_over'];
 
 export default function App() {
   useSocket();
@@ -60,25 +57,25 @@ export default function App() {
   const reconnecting = useGameStore((s) => s.reconnecting);
   const connected    = useGameStore((s) => s.connected);
 
-  const showSky              = SKY_SCREENS.includes(screen);
-  const showReconnectOverlay = reconnecting && !connected;
-
   return (
     <div style={{ position: 'relative', width: '100vw', height: '100vh', overflow: 'hidden' }}>
-      {showSky && <SkyBackground />}
+      {SKY_SCREENS.includes(screen) && <SkyBackground />}
 
       {screen === 'menu'          && <MenuScreen />}
       {screen === 'create'        && <CreateScreen />}
       {screen === 'join'          && <JoinScreen />}
+      {screen === 'browser'       && <ServerBrowserScreen />}
       {screen === 'lobby'         && <LobbyScreen />}
       {screen === 'vote_category' && <VoteCategoryScreen />}
       {screen === 'assigning'     && <AssigningScreen />}
       {screen === 'role_reveal'   && <RoleRevealScreen />}
       {screen === 'game'          && <GameScreen />}
       {screen === 'spectator'     && <SpectatorScreen />}
+      {screen === 'rejoin'        && <RejoinScreen />}
+      {screen === 'kicked'        && <KickedScreen />}
       {screen === 'game_over'     && <GameOverScreen />}
 
-      {showReconnectOverlay && <ReconnectingOverlay />}
+      {reconnecting && !connected && <ReconnectingOverlay />}
     </div>
   );
 }

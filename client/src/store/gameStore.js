@@ -1,27 +1,32 @@
-// client/src/store/gameStore.js
-
 import { create } from 'zustand';
 
-const useGameStore = create((set, get) => ({
-  // ── Connection ────────────────────────────────────────────
+const useGameStore = create((set) => ({
   connected: false,
   setConnected: (v) => set({ connected: v }),
 
-  // ── Screen ────────────────────────────────────────────────
   screen: 'menu',
   setScreen: (s) => set({ screen: s }),
 
-  // ── Room & Players ────────────────────────────────────────
   room: null,
   myId: null,
   setRoom: (r) => set({ room: r }),
   setMyId: (id) => set({ myId: id }),
 
-  // ── Role ──────────────────────────────────────────────────
   myRole: null,
   setMyRole: (r) => set({ myRole: r }),
 
-  // ── Category Vote ─────────────────────────────────────────
+  // Rejoin token — stored in memory and localStorage
+  rejoinToken: null,
+  setRejoinToken: (t) => {
+    set({ rejoinToken: t });
+    if (t) localStorage.setItem('cm_rejoin_token', t);
+    else localStorage.removeItem('cm_rejoin_token');
+  },
+
+  // Rejoin info — set when disconnect detected mid-game
+  rejoinInfo: null,
+  setRejoinInfo: (info) => set({ rejoinInfo: info }),
+
   categories: [],
   categoryVoteCounts: {},
   voteSecondsLeft: 15,
@@ -33,7 +38,6 @@ const useGameStore = create((set, get) => ({
   setMyVote: (v) => set({ myVote: v }),
   setChosenCategory: (c) => set({ chosenCategory: c }),
 
-  // ── Game ──────────────────────────────────────────────────
   currentRound: 1,
   roundSecondsLeft: 60,
   testsPassed: 0,
@@ -58,21 +62,17 @@ const useGameStore = create((set, get) => ({
     return { codeLines: lines };
   }),
 
-  // ── Auto-test tracking ────────────────────────────────────
-  // Tracks which lines have been edited since last test run
   editedLines: new Set(),
   markLineEdited: (idx) => set((state) => ({
     editedLines: new Set([...state.editedLines, idx]),
   })),
   clearEditedLines: () => set({ editedLines: new Set() }),
 
-  // ── Emergency ─────────────────────────────────────────────
   emergencyUsed: false,
   emergencyCaller: null,
   setEmergencyUsed: (v) => set({ emergencyUsed: v }),
   setEmergencyCaller: (n) => set({ emergencyCaller: n }),
 
-  // ── Voting ────────────────────────────────────────────────
   votingPlayers: [],
   voteSecondsLeftPlayer: 30,
   myPlayerVote: null,
@@ -82,24 +82,19 @@ const useGameStore = create((set, get) => ({
   setMyPlayerVote: (v) => set({ myPlayerVote: v }),
   setEliminatedPlayer: (p) => set({ eliminatedPlayer: p }),
 
-  // ── Chat ──────────────────────────────────────────────────
   chatLog: [],
   addChatMessage: (msg) => set((state) => ({ chatLog: [...state.chatLog, msg] })),
   clearChat: () => set({ chatLog: [] }),
 
-  // ── Game Over ─────────────────────────────────────────────
   gameOverData: null,
   setGameOverData: (d) => set({ gameOverData: d }),
 
-  // ── Reconnect ─────────────────────────────────────────────
   reconnecting: false,
   setReconnecting: (v) => set({ reconnecting: v }),
 
-  // ── Spectator ─────────────────────────────────────────────
   isSpectator: false,
   setIsSpectator: (v) => set({ isSpectator: v }),
 
-  // ── Disconnected players ──────────────────────────────────
   disconnectedPlayerIds: [],
   setDisconnectedPlayerIds: (ids) => set({ disconnectedPlayerIds: ids }),
   addDisconnectedPlayer: (id) => set((s) => ({
@@ -108,10 +103,17 @@ const useGameStore = create((set, get) => ({
   removeDisconnectedPlayer: (id) => set((s) => ({
     disconnectedPlayerIds: s.disconnectedPlayerIds.filter((x) => x !== id),
   })),
+  // ── Public rooms (server browser) ─────────────────────────────────────
+  publicRooms: [],
+  setPublicRooms: (rooms) => set({ publicRooms: rooms }),
 
-  // ── Reset ─────────────────────────────────────────────────
+  // ── Game settings (received at game_start) ────────────────────────────
+  gameSettings: null,
+  setGameSettings: (s) => set({ gameSettings: s }),
   resetGame: () => set({
     myRole: null,
+    rejoinToken: null,
+    rejoinInfo: null,
     categories: [],
     categoryVoteCounts: {},
     myVote: null,
@@ -136,6 +138,8 @@ const useGameStore = create((set, get) => ({
     reconnecting: false,
     isSpectator: false,
     disconnectedPlayerIds: [],
+    publicRooms: [],
+    gameSettings: null,
   }),
 }));
 
