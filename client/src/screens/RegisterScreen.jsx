@@ -3,17 +3,17 @@ import { useAuth } from '../contexts/AuthContext';
 import useGameStore from '../store/gameStore';
 
 const ROLES = [
-  { value: 'player',    label: '🎮 Just playing for fun',   desc: 'Casual games with friends' },
-  { value: 'student',   label: '📚 Student',                 desc: 'Learning through gameplay' },
-  { value: 'developer', label: '💻 Developer',               desc: 'Sharpen your coding skills' },
-  { value: 'teacher',   label: '🏫 Teacher / Educator',      desc: 'Engage your students' },
+  { value: 'player',    label: '🎮 Just playing for fun',  desc: 'Casual games with friends' },
+  { value: 'student',   label: '📚 Student',                desc: 'Learning through gameplay' },
+  { value: 'developer', label: '💻 Developer',              desc: 'Sharpen your coding skills' },
+  { value: 'teacher',   label: '🏫 Teacher / Educator',     desc: 'Engage your students' },
 ];
 
 export default function RegisterScreen() {
   const { register, loginWithGoogle } = useAuth();
   const setScreen = useGameStore((s) => s.setScreen);
 
-  const [step,     setStep]     = useState(1); // 1 = credentials, 2 = role
+  const [step,     setStep]     = useState(1);
   const [email,    setEmail]    = useState('');
   const [password, setPassword] = useState('');
   const [username, setUsername] = useState('');
@@ -51,8 +51,17 @@ export default function RegisterScreen() {
     <div style={{
       position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column',
       alignItems: 'center', justifyContent: 'center', zIndex: 10,
-      overflowY: 'auto', padding: '20px 0',
+      overflowY: 'auto', padding: '20px 16px',
     }}>
+
+      {/* Back button — top left */}
+      <button
+        onClick={() => step === 2 ? setStep(1) : setScreen('menu')}
+        className="back-corner"
+      >
+        ← {step === 2 ? 'BACK' : 'MENU'}
+      </button>
+
       <div className="title-area">
         <span className="title-code">CODE</span>
         <span className="title-mafia">MAFIA</span>
@@ -60,10 +69,9 @@ export default function RegisterScreen() {
       </div>
 
       <div className="dialog" style={{ width: 400 }}>
-        {/* Step indicator */}
-        <div style={{
-          display: 'flex', justifyContent: 'center', gap: 8, marginBottom: 20,
-        }}>
+
+        {/* Step dots */}
+        <div style={{ display: 'flex', justifyContent: 'center', gap: 8, marginBottom: 20 }}>
           {[1, 2].map((s) => (
             <div key={s} style={{
               width: 10, height: 10, borderRadius: '50%',
@@ -92,6 +100,7 @@ export default function RegisterScreen() {
 
         {step === 1 && (
           <>
+            {/* Google signup */}
             <button
               onClick={loginWithGoogle}
               style={{
@@ -103,7 +112,11 @@ export default function RegisterScreen() {
                 display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10,
               }}
             >
-              <span style={{ fontSize: 16 }}>G</span> SIGN UP WITH GOOGLE
+              <span style={{
+                fontSize: 16, fontFamily: 'sans-serif',
+                fontWeight: 'bold', color: '#4285f4',
+              }}>G</span>
+              SIGN UP WITH GOOGLE
             </button>
 
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
@@ -134,13 +147,33 @@ export default function RegisterScreen() {
                 value={password} onChange={(e) => setPassword(e.target.value)}
                 required
               />
-              <div className="dialog-buttons" style={{ marginTop: 4 }}>
-                <button type="button" className="btn btn-back" onClick={() => setScreen('login')}>
-                  LOGIN
-                </button>
-                <button type="submit" className="btn btn-orange">NEXT →</button>
-              </div>
+              <button
+                type="submit"
+                style={{
+                  width: '100%', padding: '13px 0', marginTop: 4,
+                  fontFamily: "'Press Start 2P', monospace", fontSize: 11,
+                  background: '#f5a623', color: '#fff',
+                  border: '3px solid #8b5e00', boxShadow: '4px 4px 0 #8b5e00',
+                  cursor: 'pointer', letterSpacing: 1,
+                }}
+              >
+                NEXT →
+              </button>
             </form>
+
+            {/* Switch to login */}
+            <div style={{
+              textAlign: 'center', marginTop: 16,
+              fontFamily: "'VT323', monospace", fontSize: 18, color: '#8b7355',
+            }}>
+              Already have an account?{' '}
+              <span
+                style={{ color: '#f5a623', cursor: 'pointer', textDecoration: 'underline' }}
+                onClick={() => setScreen('login')}
+              >
+                Login here
+              </span>
+            </div>
           </>
         )}
 
@@ -167,14 +200,14 @@ export default function RegisterScreen() {
                   }}
                 >
                   <div style={{
-                    fontFamily: "'Press Start 2P', monospace", fontSize: 9,
-                    color: '#4a3a20', letterSpacing: 1, marginBottom: 4,
+                    fontFamily: "'Press Start 2P', monospace",
+                    fontSize: 9, color: '#4a3a20', letterSpacing: 1, marginBottom: 4,
                   }}>
                     {r.label}
                   </div>
                   <div style={{
-                    fontFamily: "'VT323', monospace", fontSize: 15,
-                    color: '#8b7355', letterSpacing: 1,
+                    fontFamily: "'VT323', monospace",
+                    fontSize: 15, color: '#8b7355', letterSpacing: 1,
                   }}>
                     {r.desc}
                   </div>
@@ -182,17 +215,20 @@ export default function RegisterScreen() {
               ))}
             </div>
 
-            <div className="dialog-buttons">
-              <button className="btn btn-back" onClick={() => setStep(1)}>← BACK</button>
-              <button
-                className="btn btn-green"
-                onClick={handleStep2}
-                disabled={loading}
-                style={{ opacity: loading ? 0.7 : 1 }}
-              >
-                {loading ? '...' : 'JOIN!'}
-              </button>
-            </div>
+            <button
+              onClick={handleStep2}
+              disabled={loading}
+              style={{
+                width: '100%', padding: '14px 0',
+                fontFamily: "'Press Start 2P', monospace", fontSize: 11,
+                background: '#27ae60', color: '#fff',
+                border: '3px solid #1a6e1a', boxShadow: '4px 4px 0 #1a6e1a',
+                cursor: loading ? 'default' : 'pointer',
+                letterSpacing: 1, opacity: loading ? 0.7 : 1,
+              }}
+            >
+              {loading ? '...' : 'JOIN!'}
+            </button>
           </>
         )}
       </div>

@@ -1,7 +1,7 @@
 import React, { useState, useRef } from 'react';
 import socket from '../socket';
 import useGameStore from '../store/gameStore';
-
+import { useAuth } from '../contexts/AuthContext';
 const TOGGLE = ({ label, value, onChange }) => (
   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
     <span style={{ fontFamily: "'VT323', monospace", fontSize: 18, color: '#4a3a20', letterSpacing: 1 }}>
@@ -54,6 +54,7 @@ const PICKER = ({ label, value, options, onChange }) => (
 
 export default function CreateScreen() {
   const setScreen = useGameStore((s) => s.setScreen);
+  const { user } = useAuth();
   const [name, setName] = useState('');
   const [shaking, setShaking] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
@@ -78,8 +79,9 @@ export default function CreateScreen() {
   }
 
   function handleCreate() {
-    if (!name.trim()) return shake();
-    socket.emit('create_room', { name: name.trim(), settings });
+    const playerName = user ? user.username : name.trim();
+    if (!playerName) return shake();
+    socket.emit('create_room', { name: playerName, settings });
   }
 
   return (
@@ -95,15 +97,37 @@ export default function CreateScreen() {
       </div>
 
       <div className="dialog" style={{ width: 400 }}>
-        <div className="dialog-label">Enter your name!</div>
-        <input
-          ref={inputRef}
-          className={`dialog-input${shaking ? ' shake' : ''}`}
-          type="text" placeholder="Player name..." maxLength={20}
-          value={name} onChange={(e) => setName(e.target.value)}
-          onKeyDown={(e) => e.key === 'Enter' && handleCreate()}
-          autoFocus
-        />
+
+        {/* Conditional: name input for guests, username display for logged-in users */}
+        {!user ? (
+          <>
+            <div className="dialog-label">Enter your name!</div>
+            <input
+              ref={inputRef}
+              className={`dialog-input${shaking ? ' shake' : ''}`}
+              type="text"
+              placeholder="Player name..."
+              maxLength={20}
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && handleCreate()}
+              autoFocus
+            />
+          </>
+        ) : (
+          <div style={{
+            background: '#f0d898',
+            border: '2px solid #8b7355',
+            padding: '10px 12px',
+            marginBottom: 16,
+            fontFamily: "'VT323', monospace",
+            fontSize: 20,
+            color: '#4a3a20',
+            letterSpacing: 1,
+          }}>
+            Playing as: <span style={{ color: '#f5a623' }}>{user.username}</span>
+          </div>
+        )}
 
         {/* Settings toggle */}
         <button

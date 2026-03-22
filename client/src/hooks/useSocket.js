@@ -1,94 +1,87 @@
 import { useEffect, useRef } from 'react';
 import socket from '../socket';
 import useGameStore from '../store/gameStore';
-import { getChallengeForRound } from '../utils/challenges';
+
+function cleanLines(lines) {
+  return lines.map((l) =>
+    String(l)
+      .replace(/<[^>]*>/g, '')
+      .replace(/&amp;/g, '&')
+      .replace(/&lt;/g, '<')
+      .replace(/&gt;/g, '>')
+      .replace(/&quot;/g, '"')
+      .replace(/&#39;/g, "'")
+  );
+}
 
 export default function useSocket() {
-  const autoRejoinAttempted = useRef(false);
+  const savedCode = useRef(null);
+  const savedName = useRef(null);
 
   useEffect(() => {
-    // ── Connection ────────────────────────────────────────────────────
+
     socket.on('connect', () => {
       const s = useGameStore.getState();
       s.setConnected(true);
       s.setMyId(socket.id);
-
-      // Auto-attempt rejoin on reconnect if we have saved info
-      if (s.rejoinInfo && !autoRejoinAttempted.current) {
-        autoRejoinAttempted.current = true;
-        socket.emit('rejoin_room', {
-          code: s.rejoinInfo.code,
-          name: s.rejoinInfo.name,
-          rejoinToken: s.rejoinInfo.rejoinToken,
-        });
+      if (s.reconnecting && s.rejoinInfo) {
+        socket.emit('rejoin_room', s.rejoinInfo);
       }
     });
 
     socket.on('disconnect', () => {
       const s = useGameStore.getState();
       s.setConnected(false);
-
-      // If mid-game, save rejoin info and go to rejoin screen
       if (['game', 'voting_players', 'emergency', 'spectator'].includes(s.screen)) {
+        s.setReconnecting(true);
         const me = s.room?.players?.find((p) => p.id === socket.id);
         if (me && s.rejoinToken && s.room) {
-          s.setRejoinInfo({
-            code: s.room.code,
-            name: me.name,
-            rejoinToken: s.rejoinToken,
-          });
-          s.setScreen('rejoin');
-          autoRejoinAttempted.current = false;
+          s.setRejoinInfo({ code: s.room.code, name: me.name, rejoinToken: s.rejoinToken });
         }
       }
     });
 
-    // ── Rejoin ────────────────────────────────────────────────────────
-    socket.on('rejoined', ({ room, role, currentRound, category, testsPassed, sabotagesDone }) => {
+    // ── Rejoin ────────────────────────────────────────────────
+    socket.on('rejoined', ({ room, role, category, testsPassed, currentCode, lineAuthors, secondsLeft }) => {
       const s = useGameStore.getState();
-      const challenge = getChallengeForRound(category, currentRound);
       s.setRoom(room);
       s.setMyRole(role);
       s.setChosenCategory(category);
-      s.setCurrentRound(currentRound);
-      s.setCodeLines([...challenge.code]);
-      s.setTestNames(challenge.tests.map((t) => t.name));
-      s.setSabotages(challenge.sabotages);
+      s.setCodeLines(cleanLines(currentCode));
+      s.setLineAuthors(lineAuthors || {});
       s.setTestsPassed(testsPassed || 0);
-      s.setSabotagesDone(sabotagesDone || 0);
+      s.setGameSecondsLeft(secondsLeft || 480);
       s.setRejoinInfo(null);
+      s.setReconnecting(false);
       s.setScreen('game');
-      autoRejoinAttempted.current = false;
     });
 
-    socket.on('rejoin_failed', ({ message }) => {
-      console.warn('Rejoin failed:', message);
-      // RejoinScreen handles this event directly
+    socket.on('rejoin_failed', ({ message }) => console.warn('Rejoin failed:', message));
+    socket.on('player_rejoined', ({ room }) => useGameStore.getState().setRoom(room));
+    socket.on('player_disconnected', ({ playerId, room }) => {
+      const s = useGameStore.getState();
+      s.setRoom(room);
+      s.addDisconnectedPlayer(playerId);
     });
 
-    socket.on('player_rejoined', ({ room, name }) => {
-      useGameStore.getState().setRoom(room);
-    });
-
-    // ── Kicked ────────────────────────────────────────────────────────
     socket.on('you_were_kicked', () => {
       const s = useGameStore.getState();
       s.resetGame();
       s.setScreen('kicked');
     });
 
-    // ── Lobby ─────────────────────────────────────────────────────────
+    // ── Lobby ─────────────────────────────────────────────────
     socket.on('room_created', ({ room, rejoinToken }) => {
       const s = useGameStore.getState();
       s.setRoom(room);
-      s.setRejoinToken(rejoinToken);
+      if (rejoinToken) s.setRejoinToken(rejoinToken);
       s.setScreen('lobby');
     });
 
     socket.on('room_joined', ({ room, rejoinToken }) => {
       const s = useGameStore.getState();
       s.setRoom(room);
-      s.setRejoinToken(rejoinToken);
+      if (rejoinToken) s.setRejoinToken(rejoinToken);
       s.setScreen('lobby');
     });
 
@@ -100,7 +93,29 @@ export default function useSocket() {
       s.setAliveCount(room.players.length);
     });
 
-    // ── Category Vote ─────────────────────────────────────────────────
+    socket.on('settings_updated', ({ settings }) => {
+      const s = useGameStore.getState();
+      if (s.room) s.setRoom({ ...s.room, settings });
+    });
+
+    socket.on('spectating', ({ room }) => {
+      const s = useGameStore.getState();
+      s.setRoom(room);
+      s.setIsSpectator(true);
+      s.setScreen('spectator');
+    });
+
+    socket.on('spectator_joined', ({ spectatorCount }) => {
+      const s = useGameStore.getState();
+      if (s.room) s.setRoom({ ...s.room, spectatorCount });
+    });
+
+    socket.on('spectator_left', ({ spectatorCount }) => {
+      const s = useGameStore.getState();
+      if (s.room) s.setRoom({ ...s.room, spectatorCount });
+    });
+
+    // ── Category Vote ─────────────────────────────────────────
     socket.on('vote_start', ({ categories, duration }) => {
       const s = useGameStore.getState();
       const counts = {};
@@ -111,47 +126,54 @@ export default function useSocket() {
       s.setMyVote(null);
       s.setScreen('vote_category');
     });
+
     socket.on('vote_tick',           ({ seconds }) => useGameStore.getState().setVoteSecondsLeft(seconds));
     socket.on('vote_counts_updated', ({ counts })  => useGameStore.getState().setCategoryVoteCounts(counts));
-    socket.on('vote_end', ({ winner }) => {
+    socket.on('vote_end',            ({ winner })  => {
       useGameStore.getState().setChosenCategory(winner);
       useGameStore.getState().setScreen('assigning');
     });
 
-    // ── Role ──────────────────────────────────────────────────────────
-    socket.on('role_assigned', ({ role }) => {
-      useGameStore.getState().setMyRole(role);
-      useGameStore.getState().setScreen('role_reveal');
+    // ── Role Reveal ───────────────────────────────────────────
+    socket.on('role_assigned', ({ role, impostorGoals, sabotageHints }) => {
+      const s = useGameStore.getState();
+      s.setMyRole(role);
+      s.setImpostorGoals(impostorGoals || []);
+      s.setSabotageHints(sabotageHints || []);
+      s.setScreen('role_reveal');
     });
 
-    // ── Game ──────────────────────────────────────────────────────────
-    function loadRound(category, round) {
-      const challenge = getChallengeForRound(category, round);
+    // ── Game Start ────────────────────────────────────────────
+    socket.on('game_start', ({ category, code, duration, sections, testNames, settings, language, title, description, fixHints }) => {
       const s = useGameStore.getState();
-      s.setCurrentRound(round);
-      s.setCodeLines([...challenge.code]);
-      s.setTestNames(challenge.tests.map((t) => t.name));
+      s.setChosenCategory(category);
+      s.setCodeLines(cleanLines(code));
+      s.setLineAuthors({});
+      s.setGameSecondsLeft(duration || 480);
       s.setTestsPassed(0);
-      s.setSabotages(challenge.sabotages);
-      s.setSabotagesDone(0);
-      s.setRoundSecondsLeft(60);
-    }
-
-    socket.on('game_start', ({ category, round, settings }) => {
-      const s = useGameStore.getState();
-      loadRound(category, round);
+      s.setMaxTestsPassed(0);
+      s.setTestsTotal(testNames?.length || 9);
+      s.setTestResults((testNames || []).map((t) => ({ name: t.name, section: t.section, passed: false })));
+      s.setGameSections(sections || []);
+      s.setGameLanguage(language || 'python');
+      s.setGameTitle(title || '');
+      s.setGameDescription(description || '');
+      s.setFixHints(fixHints || []);
       s.setAliveCount(s.room?.players?.length || 0);
       s.setDisconnectedPlayerIds([]);
-      if (settings) {
-        const room = s.room;
-        if (room) s.setRoom({ ...room, settings });
-      }
+      if (settings && s.room) s.setRoom({ ...s.room, settings });
       s.setScreen('game');
     });
 
-    socket.on('round_start', ({ round }) => {
+    // ── Game Timer ────────────────────────────────────────────
+    socket.on('game_tick', ({ seconds }) => {
+      useGameStore.getState().setGameSecondsLeft(seconds);
+    });
+
+    // ── Game Resumed (after vote) ─────────────────────────────
+    socket.on('game_resumed', ({ secondsLeft }) => {
       const s = useGameStore.getState();
-      loadRound(s.chosenCategory, round);
+      s.setGameSecondsLeft(secondsLeft);
       s.setEliminatedPlayer(null);
       s.setMyPlayerVote(null);
       s.setVotingPlayers([]);
@@ -159,24 +181,33 @@ export default function useSocket() {
       if (s.screen !== 'spectator') s.setScreen('game');
     });
 
-    socket.on('round_tick', ({ seconds }) => useGameStore.getState().setRoundSecondsLeft(seconds));
-
-    socket.on('code_change', ({ lineIndex, content }) => {
-      useGameStore.getState().updateCodeLine(lineIndex, content);
+    // ── Code Sync ─────────────────────────────────────────────
+    socket.on('code_change', ({ lineIndex, content, author }) => {
+      const s = useGameStore.getState();
+      const clean = String(content || '').replace(/<[^>]*>/g, '');
+      s.updateCodeLine(lineIndex, clean);
+      if (author) s.updateLineAuthor(lineIndex, author);
     });
 
-    socket.on('tests_updated', ({ testsPassed, total, results }) => {
+    // ── Tests ─────────────────────────────────────────────────
+    socket.on('tests_updated', ({ testsPassed, maxPassed, total, results }) => {
       const s = useGameStore.getState();
       s.setTestsPassed(testsPassed);
+      if (maxPassed !== undefined) s.setMaxTestsPassed(maxPassed);
       s.setTestsTotal(total);
-      if (results) s.setTestNames(results.map((r) => r.name));
+      if (results) s.setTestResults(results);
     });
 
-    socket.on('sabotage_confirmed', ({ sabotagesDone }) => {
-      useGameStore.getState().setSabotagesDone(sabotagesDone);
+    // ── Live Cursor Presence ──────────────────────────────────
+    socket.on('cursors_updated', ({ cursors }) => {
+      const s = useGameStore.getState();
+      const current = s.remoteCursors.filter(
+        (c) => !cursors.some((nc) => nc.playerId === c.playerId)
+      );
+      s.setRemoteCursors([...current, ...cursors]);
     });
 
-    // ── Emergency ─────────────────────────────────────────────────────
+    // ── Standup / Emergency ───────────────────────────────────
     socket.on('emergency_called', ({ calledBy }) => {
       useGameStore.getState().setEmergencyCaller(calledBy);
     });
@@ -189,9 +220,8 @@ export default function useSocket() {
       s.setEmergencyCaller(null);
     });
 
-    socket.on('vote_tick_player', ({ seconds }) => {
-      useGameStore.getState().setVoteSecondsLeftPlayer(seconds);
-    });
+    socket.on('vote_tick_player', ({ seconds }) => useGameStore.getState().setVoteSecondsLeftPlayer(seconds));
+    socket.on('vote_recorded', () => {});
 
     socket.on('vote_result', ({ eliminated }) => {
       const s = useGameStore.getState();
@@ -206,65 +236,30 @@ export default function useSocket() {
       }
     });
 
-    // ── Eliminated ────────────────────────────────────────────────────
     socket.on('you_were_eliminated', () => {
       const s = useGameStore.getState();
       s.setIsSpectator(true);
       s.setScreen('spectator');
     });
 
-    // ── Disconnect tracking ───────────────────────────────────────────
-    socket.on('player_disconnected', ({ playerId, room }) => {
+    // ── Countdown ─────────────────────────────────────────────
+    socket.on('countdown_start',     ({ count }) => useGameStore.getState().setCountdown(count));
+    socket.on('countdown_tick',      ({ count }) => useGameStore.getState().setCountdown(count));
+    socket.on('countdown_cancelled', ({ room })  => {
       const s = useGameStore.getState();
+      s.setCountdown(null);
       s.setRoom(room);
-      s.addDisconnectedPlayer(playerId);
     });
 
-    socket.on('player_reconnected', ({ room }) => {
-      useGameStore.getState().setRoom(room);
-    });
-
-    // ── Chat ──────────────────────────────────────────────────────────
+    // ── Chat ──────────────────────────────────────────────────
     socket.on('message_received', (msg) => useGameStore.getState().addChatMessage(msg));
+    socket.on('public_rooms',     ({ rooms }) => useGameStore.getState().setPublicRooms(rooms));
 
-    // ── Settings ──────────────────────────────────────────────────────
-    socket.on('settings_updated', ({ settings }) => {
-      const s = useGameStore.getState();
-      const room = s.room;
-      if (room) s.setRoom({ ...room, settings });
-    });
-
-    // ── Server Browser ────────────────────────────────────────────────
-    socket.on('public_rooms', ({ rooms }) => {
-      useGameStore.getState().setPublicRooms(rooms);
-    });
-
-    // ── Spectating ────────────────────────────────────────────────────
-    socket.on('spectating', ({ room }) => {
-      const s = useGameStore.getState();
-      s.setRoom(room);
-      s.setIsSpectator(true);
-      s.setScreen('spectator');
-    });
-
-    socket.on('spectator_joined', ({ spectatorCount }) => {
-      const s = useGameStore.getState();
-      const room = s.room;
-      if (room) s.setRoom({ ...room, spectatorCount });
-    });
-
-    socket.on('spectator_left', ({ spectatorCount }) => {
-      const s = useGameStore.getState();
-      const room = s.room;
-      if (room) s.setRoom({ ...room, spectatorCount });
-    });
-
-    // ── Game Over ─────────────────────────────────────────────────────
+    // ── Game Over ─────────────────────────────────────────────
     socket.on('game_over', (data) => {
       const s = useGameStore.getState();
       s.setGameOverData(data);
       s.setIsSpectator(false);
-      s.setRejoinInfo(null);
       s.setScreen('game_over');
     });
 
@@ -282,14 +277,15 @@ export default function useSocket() {
         'connect', 'disconnect',
         'room_created', 'room_joined', 'room_updated', 'player_joined', 'player_left',
         'rejoined', 'rejoin_failed', 'player_rejoined', 'you_were_kicked',
-        'vote_start', 'vote_tick', 'vote_counts_updated', 'vote_end',
-        'role_assigned', 'game_start', 'round_start', 'round_tick',
-        'code_change', 'tests_updated', 'sabotage_confirmed',
-        'emergency_called', 'voting_start', 'vote_tick_player', 'vote_result',
-        'you_were_eliminated', 'player_disconnected', 'player_reconnected',
-        'message_received', 'game_over', 'game_abandoned', 'error',
-        'settings_updated', 'public_rooms',
+        'player_disconnected', 'settings_updated',
         'spectating', 'spectator_joined', 'spectator_left',
+        'vote_start', 'vote_tick', 'vote_counts_updated', 'vote_end',
+        'role_assigned', 'game_start', 'game_tick', 'game_resumed',
+        'code_change', 'tests_updated',
+        'emergency_called', 'voting_start', 'vote_tick_player',
+        'vote_recorded', 'vote_result', 'you_were_eliminated',
+        'countdown_start', 'countdown_tick', 'countdown_cancelled',
+        'public_rooms', 'message_received', 'game_over', 'game_abandoned', 'error',
       ].forEach((ev) => socket.off(ev));
     };
   }, []);

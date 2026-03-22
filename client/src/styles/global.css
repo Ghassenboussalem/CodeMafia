@@ -230,7 +230,7 @@ html, body, #root {
 .vote-result-sub     { font-family:'VT323',monospace; font-size:18px; color:#8b7355; letter-spacing:1px; }
 
 /* ── Game Over ───────────────────────────────────────────────── */
-.screen-gameover     { }
+
 .gameover-bg-civ     { background:linear-gradient(180deg,#5ab0e0 0%,#7ecbee 60%,#a8dff5 100%); }
 .gameover-bg-imp     { background:linear-gradient(180deg,#1a0010 0%,#2a0020 60%,#1a0810 100%); }
 .trophy-icon         { font-size:60px; margin-bottom:8px; }
@@ -248,3 +248,157 @@ html, body, #root {
 .vote-result-title   { font-size:14px; color:#4a3a20; margin-bottom:16px; letter-spacing:1px; }
 .vote-result-name    { font-family:'VT323',monospace; font-size:32px; letter-spacing:2px; margin-bottom:8px; }
 .vote-result-sub     { font-family:'VT323',monospace; font-size:18px; color:#8b7355; letter-spacing:1px; }
+
+/* ════════════════════════════════════════════════════════════════
+   MOBILE RESPONSIVE  (max-width: 600px)
+   ════════════════════════════════════════════════════════════════ */
+@media (max-width: 600px) {
+
+  /* ── Base ─────────────────────────────────────────────────── */
+  html, body, #root { overflow: hidden; }
+
+  /* ── Hide distant clouds on tiny screens ─────────────────── */
+  .cloud-3, .cloud-4, .cloud-5 { display: none; }
+
+  /* ── Title ───────────────────────────────────────────────── */
+  .title-code, .title-mafia { font-size: 30px; letter-spacing: 2px; }
+  .title-area  { margin-bottom: 16px; }
+  .subtitle    { font-size: 16px; }
+  .bottom-hint { font-size: 14px; }
+
+  /* ── Hide decorative character panel on tiny screens (menu overlaps) ── */
+  .menu-character-panel { display: none; }
+
+  /* ── Menu buttons ─────────────────────────────────────────── */
+  .menu-buttons { width: 90vw; gap: 10px; }
+  .btn-big      { font-size: 9px; padding: 14px 8px; }
+
+  /* ── Dialog (create / join forms) ────────────────────────── */
+  .dialog       { width: 92vw; padding: 18px 16px 16px; }
+  .dialog-label { font-size: 16px; }
+  .dialog-input { font-size: 17px; padding: 8px 10px; }
+
+  /* ── Lobby ──────────────────────────────────────────────── */
+  .lobby-title    { font-size: 20px; margin-bottom: 14px; }
+  .lobby-code-box { width: 92vw; padding: 10px 14px; gap: 10px; }
+  .lobby-code-value { font-size: 18px; }
+  .players-box    { width: 92vw; padding: 12px; }
+  .player-name    { font-size: 16px; }
+  .players-header { font-size: 16px; }
+  .btn-solo       { font-size: 9px; padding: 12px 24px; }
+  .back-corner    { font-size: 7px; padding: 8px 10px; top: 10px; left: 10px; }
+
+  /* ── Vote category ──────────────────────────────────────── */
+  .vote-grid  { grid-template-columns: 1fr; width: 92vw; }
+  .vote-card  { font-size: 15px; }
+  .vote-title { font-size: 16px; }
+
+  /* ── Game screen: switch to column + tab bar ──────────────── */
+  .game-layout {
+    flex-direction: column;
+  }
+  .game-sidebar {
+    width: 100% !important;
+    border-right: none;
+    border-bottom: 3px solid #2a3a2a;
+    max-height: 42vh;
+    overflow-y: auto;
+  }
+  .game-chat-panel {
+    width: 100% !important;
+    border-left: none;
+    border-top: 3px solid #8b7355;
+    max-height: 38vh;
+  }
+  .game-topbar {
+    height: auto;
+    flex-wrap: wrap;
+    gap: 6px;
+    padding: 6px 8px;
+  }
+  .game-round-badge  { font-size: 7px; padding: 4px 6px; }
+  .game-timer-box    { font-size: 18px; padding: 2px 10px; }
+  .game-alive-label  { font-size: 13px; }
+  .game-category-label { font-size: 14px; }
+
+  /* ── Tab system (set by JS class on game-layout) ──────────── */
+  .game-layout.tab-editor   .game-sidebar,
+  .game-layout.tab-editor   .game-chat-panel  { display: none; }
+  .game-layout.tab-sidebar  .game-chat-panel  { display: none; }
+  .game-layout.tab-sidebar  > div:nth-child(2) { display: none; } /* editor */
+  .game-layout.tab-chat     .game-sidebar     { display: none; }
+  .game-layout.tab-chat     > div:nth-child(2) { display: none; } /* editor */
+
+  /* ── Mobile tab bar (rendered by GameScreen on mobile) ─────── */
+  .mobile-tab-bar {
+    display: flex;
+    background: #1a1a2e;
+    border-top: 3px solid #f5a623;
+    height: 44px;
+    flex-shrink: 0;
+  }
+  .mobile-tab-btn {
+    flex: 1;
+    background: none;
+    border: none;
+    border-right: 2px solid #333;
+    color: #888;
+    font-family: 'Press Start 2P', monospace;
+    font-size: 7px;
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+    transition: background .1s;
+  }
+  .mobile-tab-btn:last-child { border-right: none; }
+  .mobile-tab-btn.active {
+    background: #2a2a4e;
+    color: #f5a623;
+    border-bottom: 3px solid #f5a623;
+  }
+  .mobile-tab-icon { font-size: 14px; }
+
+  /* ── Emergency button ───────────────────────────────────── */
+  .emergency-btn { font-size: 8px; padding: 9px 18px; bottom: 52px; }
+
+  /* ── Player vote ────────────────────────────────────────── */
+  .player-vote-overlay { flex-direction: column; padding: 16px; }
+  .pvote-row, .pvote-skip { width: 92vw; }
+  .pvote-title { font-size: 13px; }
+
+  /* ── Sidebar font sizes ─────────────────────────────────── */
+  .sidebar-section-title { font-size: 7px; }
+  .sidebar-player-name   { font-size: 7px; }
+  .test-case { font-size: 12px; padding: 6px 8px; }
+
+  /* ── Role reveal ────────────────────────────────────────── */
+  .role-name  { font-size: 34px; }
+  .role-desc  { font-size: 16px; }
+
+  /* ── Game over ──────────────────────────────────────────── */
+  .gameover-title { font-size: 18px; }
+  .gameover-box   { padding: 14px 16px; }
+
+  /* ── Chat mini (emergency overlay) ─────────────────────── */
+  .chat-mini { width: 92vw; height: 320px; }
+}
+
+/* ── Tablet (601–900px) minor tweaks ─────────────────────────── */
+@media (min-width: 601px) and (max-width: 900px) {
+  .title-code, .title-mafia { font-size: 38px; }
+  .menu-buttons  { width: 70vw; }
+  .dialog        { width: 80vw; }
+  .lobby-code-box, .players-box { width: 80vw; }
+  .game-sidebar  { width: 160px !important; }
+  .game-chat-panel { width: 150px !important; }
+  .mobile-tab-bar { display: none; }
+}
+
+/* ── Desktop only — hide tab bar ─────────────────────────────── */
+@media (min-width: 601px) {
+  .mobile-tab-bar { display: none; }
+}
+

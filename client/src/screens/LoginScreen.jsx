@@ -29,7 +29,17 @@ export default function LoginScreen() {
     <div style={{
       position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column',
       alignItems: 'center', justifyContent: 'center', zIndex: 10,
+      padding: '20px 16px', overflowY: 'auto',
     }}>
+
+      {/* Back button — top left */}
+      <button
+        onClick={() => setScreen('menu')}
+        className="back-corner"
+      >
+        ← BACK
+      </button>
+
       <div className="title-area">
         <span className="title-code">CODE</span>
         <span className="title-mafia">MAFIA</span>
@@ -48,7 +58,8 @@ export default function LoginScreen() {
           <div style={{
             background: '#fde8e8', border: '2px solid #c0392b',
             padding: '8px 12px', marginBottom: 14,
-            fontFamily: "'VT323', monospace", fontSize: 17, color: '#c0392b', letterSpacing: 1,
+            fontFamily: "'VT323', monospace", fontSize: 17,
+            color: '#c0392b', letterSpacing: 1,
           }}>
             ⚠ {error}
           </div>
@@ -66,13 +77,12 @@ export default function LoginScreen() {
             display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10,
           }}
         >
-          <span style={{ fontSize: 16 }}>G</span> CONTINUE WITH GOOGLE
+          <span style={{ fontSize: 16, fontFamily: 'sans-serif', fontWeight: 'bold', color: '#4285f4' }}>G</span>
+          CONTINUE WITH GOOGLE
         </button>
 
         {/* Divider */}
-        <div style={{
-          display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14,
-        }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
           <div style={{ flex: 1, height: 2, background: '#c4a840' }} />
           <span style={{ fontFamily: "'VT323', monospace", fontSize: 16, color: '#8b7355' }}>OR</span>
           <div style={{ flex: 1, height: 2, background: '#c4a840' }} />
@@ -82,46 +92,49 @@ export default function LoginScreen() {
           <div className="dialog-label">Email</div>
           <input
             className="dialog-input"
-            type="email" placeholder="your@email.com"
-            value={email} onChange={(e) => setEmail(e.target.value)}
-            required autoFocus
+            type="email"
+            placeholder="your@email.com"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            required
+            autoFocus
           />
           <div className="dialog-label">Password</div>
           <input
             className="dialog-input"
-            type="password" placeholder="••••••••"
-            value={password} onChange={(e) => setPassword(e.target.value)}
+            type="password"
+            placeholder="••••••••"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
             required
           />
-          <div className="dialog-buttons" style={{ marginTop: 4 }}>
-            <button
-              type="button"
-              className="btn btn-back"
-              onClick={() => setScreen('menu')}
-            >
-              BACK
-            </button>
-            <button
-              type="submit"
-              className="btn btn-orange"
-              disabled={loading}
-              style={{ opacity: loading ? 0.7 : 1 }}
-            >
-              {loading ? '...' : 'LOGIN'}
-            </button>
-          </div>
+          <button
+            type="submit"
+            disabled={loading}
+            style={{
+              width: '100%', padding: '13px 0', marginTop: 4,
+              fontFamily: "'Press Start 2P', monospace", fontSize: 11,
+              background: '#f5a623', color: '#fff',
+              border: '3px solid #8b5e00', boxShadow: '4px 4px 0 #8b5e00',
+              cursor: loading ? 'default' : 'pointer',
+              letterSpacing: 1, opacity: loading ? 0.7 : 1,
+            }}
+          >
+            {loading ? '...' : 'LOGIN'}
+          </button>
         </form>
 
+        {/* Switch to register */}
         <div style={{
-          textAlign: 'center', marginTop: 14,
-          fontFamily: "'VT323', monospace", fontSize: 17, color: '#8b7355',
+          textAlign: 'center', marginTop: 16,
+          fontFamily: "'VT323', monospace", fontSize: 18, color: '#8b7355',
         }}>
           No account?{' '}
           <span
             style={{ color: '#f5a623', cursor: 'pointer', textDecoration: 'underline' }}
             onClick={() => setScreen('register')}
           >
-            Register here
+            Sign up here
           </span>
         </div>
       </div>

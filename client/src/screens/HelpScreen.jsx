@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import useGameStore from '../store/gameStore';
+import { useAuth } from '../contexts/AuthContext';
 
 // ── Pixel art scene components ─────────────────────────────────────────────
 
@@ -519,8 +520,6 @@ const SLIDES = [
     render: () => (
       <svg viewBox="0 0 340 180" style={{ width: '100%', maxWidth: 340 }}>
         {/* Split background */}
-        <rect x="0" y="0" width="170" height="180"
-          fill="linear-gradient(180deg,#0a2a12,#0a1a08)" />
         <rect x="0" y="0" width="170" height="180" fill="#0a2a12" />
         <rect x="170" y="0" width="170" height="180" fill="#1a0a0a" />
 
@@ -648,6 +647,7 @@ const SLIDES = [
 
 export default function HelpScreen() {
   const setScreen = useGameStore((s) => s.setScreen);
+  const { shouldShowTutorial, dismissTutorial } = useAuth();
   const [slide, setSlide] = useState(0);
   const current = SLIDES[slide];
   const isFirst = slide === 0;
@@ -692,6 +692,24 @@ export default function HelpScreen() {
           {slide + 1} / {SLIDES.length}
         </div>
       </div>
+
+      {/* Skip tutorial button — only shown for new users */}
+      {shouldShowTutorial && (
+        <button
+          onClick={async () => {
+            await dismissTutorial();
+            setScreen('menu');
+          }}
+          style={{
+            position: 'absolute', top: 16, right: 16,
+            fontFamily: "'VT323', monospace", fontSize: 18,
+            color: '#555', background: 'none', border: 'none',
+            cursor: 'pointer', letterSpacing: 1,
+          }}
+        >
+          SKIP TUTORIAL →
+        </button>
+      )}
 
       {/* Progress dots */}
       <div style={{ display: 'flex', gap: 6, marginBottom: 14 }}>
@@ -797,7 +815,10 @@ export default function HelpScreen() {
 
         {isLast ? (
           <button
-            onClick={() => setScreen('menu')}
+            onClick={async () => {
+              if (shouldShowTutorial) await dismissTutorial();
+              setScreen('menu');
+            }}
             style={{
               flex: 2, padding: '12px 0',
               fontFamily: "'Press Start 2P', monospace", fontSize: 10,

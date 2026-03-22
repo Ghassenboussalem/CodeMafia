@@ -1,736 +1,993 @@
 /**
- * Code challenge bank.
- * Each challenge has:
- *   - id, title
- *   - code: plain text lines (array) shown in editor
- *   - tests: { name, assertCode } — assertCode is eval'd server-side
- *   - sabotages: { instruction, hint, badLineIndex, badCode }
+ * Each challenge is a single coherent file split into 3 sections.
+ * Players work on the entire file throughout the game.
+ * Tests accumulate — passing a test keeps it green forever.
+ * The impostor's goal is to make a passing test fail again.
+ *
+ * Structure:
+ *   code[]         — plain text lines, NO HTML
+ *   sections[]     — { title, startLine, endLine }
+ *   tests[]        — 9 total (3 per section), each with validate(lines)
+ *   impostorGoals  — description of what the impostor should try to do
  */
 
 const challenges = {
-  'Object-Oriented Programming': [
-    {
-      id: 'oop_counter',
-      title: 'Fix the Counter',
-      code: [
-        '# Counter Class — Fix 3 TODOs',
-        '',
-        'class Counter:',
-        '    def __init__(self):',
-        '        self.count = 0',
-        '        self.history = []',
-        '',
-        '    def increment(self):',
-        '        self.count += 1',
-        '        self.history.append("inc")',
-        '',
-        '    # TODO: Fix decrement() — should subtract 1, not 2',
-        '    def decrement(self):',
-        '        self.count -= 2',
-        '        self.history.append("dec")',
-        '',
-        '    # TODO: Implement reset()',
-        '    def reset(self):',
-        '        pass',
-        '',
-        '    # TODO: Fix value() — returns history length, not count',
-        '    def value(self):',
-        '        return len(self.history)',
-      ],
-      tests: [
-        { name: 'increment works' },
-        { name: 'decrement works' },
-        { name: 'reset works' },
-      ],
-      sabotages: [
-        { instruction: 'Make increment add 2', hint: 'Line 9', badLineIndex: 8 },
-        { instruction: 'Make decrement increase count', hint: 'Line 14', badLineIndex: 13 },
-        { instruction: 'Make reset set count to 100', hint: 'Line 18', badLineIndex: 17 },
-      ],
-    },
-    {
-      id: 'oop_bank',
-      title: 'Fix the BankAccount',
-      code: [
-        '# BankAccount — Fix 3 TODOs',
-        '',
-        'class BankAccount:',
-        '    def __init__(self, owner):',
-        '        self.owner = owner',
-        '        self.balance = 0',
-        '',
-        '    # TODO: deposit adds negative',
-        '    def deposit(self, amount):',
-        '        self.balance -= amount',
-        '',
-        '    # TODO: withdraw never checks balance',
-        '    def withdraw(self, amount):',
-        '        self.balance -= amount',
-        '',
-        '    # TODO: get_balance returns 0',
-        '    def get_balance(self):',
-        '        return 0',
-      ],
-      tests: [
-        { name: 'deposit works' },
-        { name: 'withdraw works' },
-        { name: 'balance correct' },
-      ],
-      sabotages: [
-        { instruction: 'Make deposit subtract instead of add', hint: 'Line 10', badLineIndex: 9 },
-        { instruction: 'Make withdraw add to balance', hint: 'Line 14', badLineIndex: 13 },
-        { instruction: 'Always return -1 from get_balance', hint: 'Line 18', badLineIndex: 17 },
-      ],
-    },
-    {
-      id: 'oop_queue',
-      title: 'Fix the Queue',
-      code: [
-        '# Queue — Fix 3 TODOs',
-        '',
-        'class Queue:',
-        '    def __init__(self):',
-        '        self._data = []',
-        '',
-        '    # TODO: enqueue inserts at wrong position',
-        '    def enqueue(self, val):',
-        '        self._data.insert(0, val)',
-        '',
-        '    # TODO: dequeue removes last instead of first',
-        '    def dequeue(self):',
-        '        return self._data.pop() if self._data else None',
-        '',
-        '    # TODO: size returns double',
-        '    def size(self):',
-        '        return len(self._data) * 2',
-      ],
-      tests: [
-        { name: 'enqueue works' },
-        { name: 'dequeue works' },
-        { name: 'size correct' },
-      ],
-      sabotages: [
-        { instruction: 'Make enqueue insert at end', hint: 'Line 9', badLineIndex: 8 },
-        { instruction: 'Make dequeue remove first instead', hint: 'Line 13', badLineIndex: 12 },
-        { instruction: 'Make size always return 0', hint: 'Line 17', badLineIndex: 16 },
-      ],
-    },
-    {
-      id: 'oop_linked',
-      title: 'Fix the LinkedList',
-      code: [
-        '# LinkedList Node — Fix 3 TODOs',
-        '',
-        'class Node:',
-        '    def __init__(self, val):',
-        '        self.val = val',
-        '        self.next = None',
-        '',
-        'class LinkedList:',
-        '    def __init__(self):',
-        '        self.head = None',
-        '        self.length = 0',
-        '',
-        '    # TODO: append does not update length',
-        '    def append(self, val):',
-        '        node = Node(val)',
-        '        if not self.head:',
-        '            self.head = node',
-        '        else:',
-        '            cur = self.head',
-        '            while cur.next: cur = cur.next',
-        '            cur.next = node',
-        '',
-        '    # TODO: get_length returns 0',
-        '    def get_length(self):',
-        '        return 0',
-      ],
-      tests: [
-        { name: 'append works' },
-        { name: 'length tracks' },
-        { name: 'head is set' },
-      ],
-      sabotages: [
-        { instruction: 'Make append not update head', hint: 'Line 17', badLineIndex: 16 },
-        { instruction: 'Make length always -1', hint: 'Line 25', badLineIndex: 24 },
-        { instruction: 'Make append clear next pointer', hint: 'Line 21', badLineIndex: 20 },
-      ],
-    },
-  ],
 
-  'Data Structures & Algorithms': [
-    {
-      id: 'dsa_bsearch',
-      title: 'Fix Binary Search',
-      code: [
-        '# Binary Search — Fix 3 bugs',
-        '',
-        'def binary_search(arr, target):',
-        '    left, right = 0, len(arr)',
-        '',
-        '    # TODO: right init should be len(arr)-1',
-        '    while left <= right:',
-        '        mid = (left + right) // 2',
-        '        if arr[mid] == target:',
-        '            return mid',
-        '        elif arr[mid] < target:',
-        '            # TODO: left = mid+1, not mid',
-        '            left = mid',
-        '        else:',
-        '            # TODO: right = mid-1, not mid',
-        '            right = mid',
-        '',
-        '    return -1',
-      ],
-      tests: [
-        { name: 'finds element' },
-        { name: 'handles edges' },
-        { name: 'returns -1 if missing' },
-      ],
-      sabotages: [
-        { instruction: 'Make loop condition use < instead of <=', hint: 'Line 7', badLineIndex: 6 },
-        { instruction: 'Make mid always 0', hint: 'Line 8', badLineIndex: 7 },
-        { instruction: 'Make return always -1', hint: 'Line 10', badLineIndex: 9 },
-      ],
-    },
-    {
-      id: 'dsa_bubble',
-      title: 'Fix Bubble Sort',
-      code: [
-        '# Bubble Sort — Fix 3 bugs',
-        '',
-        'def bubble_sort(arr):',
-        '    n = len(arr)',
-        '    # TODO: outer range wrong — should be range(n)',
-        '    for i in range(n - 1):',
-        '        for j in range(0, n - i - 1):',
-        '            # TODO: comparison reversed',
-        '            if arr[j] > arr[j + 1]:',
-        '                arr[j], arr[j + 1] = arr[j + 1], arr[j]',
-        '    return arr',
-      ],
-      tests: [
-        { name: 'sorts ascending' },
-        { name: 'handles duplicates' },
-        { name: 'returns array' },
-      ],
-      sabotages: [
-        { instruction: 'Make outer loop range(1) only', hint: 'Line 5', badLineIndex: 4 },
-        { instruction: 'Reverse the swap', hint: 'Line 10', badLineIndex: 9 },
-        { instruction: 'Skip the inner loop', hint: 'Line 7', badLineIndex: 6 },
-      ],
-    },
-    {
-      id: 'dsa_stack',
-      title: 'Fix the Stack',
-      code: [
-        '# Stack — Fix 3 bugs',
-        '',
-        'class Stack:',
-        '    def __init__(self):',
-        '        self._data = []',
-        '',
-        '    # TODO: push inserts at 0 instead of appending',
-        '    def push(self, val):',
-        '        self._data.insert(0, val)',
-        '',
-        '    def pop(self):',
-        '        return self._data.pop() if self._data else None',
-        '',
-        '    # TODO: peek returns index 0 not last',
-        '    def peek(self):',
-        '        return self._data[0]',
-        '',
-        '    # TODO: size returns double',
-        '    def size(self):',
-        '        return len(self._data) * 2',
-      ],
-      tests: [
-        { name: 'push works' },
-        { name: 'peek works' },
-        { name: 'size correct' },
-      ],
-      sabotages: [
-        { instruction: 'Make push clear the stack', hint: 'Line 9', badLineIndex: 8 },
-        { instruction: 'Make peek always None', hint: 'Line 16', badLineIndex: 15 },
-        { instruction: 'Make size always 0', hint: 'Line 20', badLineIndex: 19 },
-      ],
-    },
-    {
-      id: 'dsa_fib',
-      title: 'Fix Fibonacci',
-      code: [
-        '# Fibonacci — Fix 3 bugs',
-        '',
-        'def fibonacci(n):',
-        '    if n <= 0: return 0',
-        '    # TODO: base case for 1 returns 0',
-        '    if n == 1: return 0',
-        '',
-        '    # TODO: a and b initialized wrong',
-        '    a, b = 1, 0',
-        '',
-        '    for _ in range(2, n):',
-        '        # TODO: update step wrong',
-        '        a, b = a + b, a',
-        '',
-        '    return b',
-      ],
-      tests: [
-        { name: 'fib(1) == 1' },
-        { name: 'fib(5) == 5' },
-        { name: 'fib(10) == 55' },
-      ],
-      sabotages: [
-        { instruction: 'Make fib(1) return -1', hint: 'Line 6', badLineIndex: 5 },
-        { instruction: 'Swap a and b init to 0,1', hint: 'Line 9', badLineIndex: 8 },
-        { instruction: 'Make loop skip every other', hint: 'Line 11', badLineIndex: 10 },
-      ],
-    },
-  ],
+  'Object-Oriented Programming': {
+    id: 'oop_bank_system',
+    title: 'Banking System',
+    language: 'python',
+    description: 'A banking system with accounts, transactions, and validation.',
+    impostorGoals: [
+      'Flip a comparison sign in validate_amount (> to >=)',
+      'Change withdrawal logic to add instead of subtract',
+      'Make get_balance return self.balance + 1',
+    ],
+    sections: [
+      { title: 'Account Creation & Validation', startLine: 0,  endLine: 24 },
+      { title: 'Deposits & Withdrawals',        startLine: 25, endLine: 50 },
+      { title: 'Transaction History',           startLine: 51, endLine: 75 },
+    ],
+    code: [
+      '# Banking System — Fix all bugs across 3 sections',
+      '# Work together to pass all 9 tests',
+      '',
+      '# ═══ SECTION 1: Account Creation & Validation ═══',
+      '',
+      'class BankAccount:',
+      '    def __init__(self, owner, initial_balance=0):',
+      '        self.owner = owner',
+      '        self.balance = initial_balance',
+      '        self.transactions = []',
+      '        self.active = True',
+      '',
+      '    # BUG: should reject negative amounts (use > not >=)',
+      '    def validate_amount(self, amount):',
+      '        if amount >= 0:',
+      '            raise ValueError("Amount must be positive")',
+      '        return True',
+      '',
+      '    # BUG: should return False when not active, not raise',
+      '    def is_active(self):',
+      '        if not self.active:',
+      '            raise RuntimeError("Account is closed")',
+      '        return True',
+      '',
+      '    def close_account(self):',
+      '        self.active = False',
+      '',
+      '# ═══ SECTION 2: Deposits & Withdrawals ═══',
+      '',
+      '    # BUG: subtracts instead of adds on deposit',
+      '    def deposit(self, amount):',
+      '        self.validate_amount(amount)',
+      '        if not self.is_active():',
+      '            return False',
+      '        self.balance -= amount',
+      '        self.transactions.append(("deposit", amount))',
+      '        return True',
+      '',
+      '    # BUG: does not check sufficient funds',
+      '    def withdraw(self, amount):',
+      '        self.validate_amount(amount)',
+      '        if not self.is_active():',
+      '            return False',
+      '        self.balance -= amount',
+      '        self.transactions.append(("withdraw", amount))',
+      '        return True',
+      '',
+      '    # BUG: returns balance + 1',
+      '    def get_balance(self):',
+      '        return self.balance + 1',
+      '',
+      '# ═══ SECTION 3: Transaction History ═══',
+      '',
+      '    # BUG: returns all transactions instead of filtered type',
+      '    def get_transactions(self, type=None):',
+      '        if type is None:',
+      '            return self.transactions',
+      '        return self.transactions',
+      '',
+      '    # BUG: count returns 0 always',
+      '    def transaction_count(self):',
+      '        return 0',
+      '',
+      '    # BUG: last_transaction returns first instead of last',
+      '    def last_transaction(self):',
+      '        if not self.transactions:',
+      '            return None',
+      '        return self.transactions[0]',
+    ],
+    tests: [
+      // Section 1
+      {
+        name: 'validate_amount rejects negatives',
+        section: 0,
+        validate: (lines) => {
+          const code = lines.join('\n');
+          const body = code.split('def validate_amount')[1]?.split('def ')[0] || '';
+          return /amount\s*<=\s*0|amount\s*<\s*0/.test(body) ||
+                 (/if\s+amount/.test(body) && />/.test(body) && !/>=/.test(body.split('if amount')[1]?.split('\n')[0] || ''));
+        },
+      },
+      {
+        name: 'is_active returns False gracefully',
+        section: 0,
+        fix: { line: 22, hint: 'Replace raise RuntimeError(...) with return False', code: '            return False' },
+        sabotageHint: { line: 22, hint: 'Change return False back to raise RuntimeError', code: '            raise RuntimeError("Account is closed")' },
+        validate: (lines) => {
+          const code = lines.join('\n');
+          const body = code.split('def is_active')[1]?.split('def ')[0] || '';
+          return /return\s+False/.test(body) && !/raise/.test(body);
+        },
+      },
+      {
+        name: 'close_account deactivates account',
+        section: 0,
+        fix: { line: 26, hint: 'This one is already correct — self.active = False is there', code: '        self.active = False' },
+        sabotageHint: { line: 26, hint: 'Change self.active = False to self.active = True', code: '        self.active = True' },
+        validate: (lines) => {
+          const code = lines.join('\n');
+          const body = code.split('def close_account')[1]?.split('def ')[0] || '';
+          return /self\.active\s*=\s*False/.test(body);
+        },
+      },
+      // Section 2
+      {
+        name: 'deposit adds to balance',
+        section: 1,
+        fix: { line: 35, hint: 'Change -= to +=', code: '        self.balance += amount' },
+        sabotageHint: { line: 35, hint: 'Change += back to -=', code: '        self.balance -= amount' },
+        validate: (lines) => {
+          const code = lines.join('\n');
+          const body = code.split('def deposit')[1]?.split('def ')[0] || '';
+          return /self\.balance\s*\+=\s*amount/.test(body) &&
+                 !/self\.balance\s*-=\s*amount/.test(body);
+        },
+      },
+      {
+        name: 'withdraw checks sufficient funds',
+        section: 1,
+        fix: { line: 44, hint: 'Add a check before subtracting: if self.balance < amount: return False', code: '        if self.balance < amount: return False' },
+        sabotageHint: { line: 44, hint: 'Remove the balance check so it always subtracts', code: '        # no check' },
+        validate: (lines) => {
+          const code = lines.join('\n');
+          const body = code.split('def withdraw')[1]?.split('def ')[0] || '';
+          return /self\.balance\s*>=\s*amount|amount\s*<=\s*self\.balance/.test(body);
+        },
+      },
+      {
+        name: 'get_balance returns exact balance',
+        section: 1,
+        fix: { line: 82, hint: 'Remove the + 1', code: '        return self.balance' },
+        sabotageHint: { line: 82, hint: 'Add + 1 back: return self.balance + 1', code: '        return self.balance + 1' },
+        validate: (lines) => {
+          const code = lines.join('\n');
+          const body = code.split('def get_balance')[1]?.split('def ')[0] || '';
+          return /return\s+self\.balance\b/.test(body) &&
+                 !/return\s+self\.balance\s*[+\-\*]/.test(body);
+        },
+      },
+      // Section 3
+      {
+        name: 'get_transactions filters by type',
+        section: 2,
+        fix: { line: 89, hint: 'Replace the second `return self.transactions` with a filtered list', code: '        return [t for t in self.transactions if t[0] == type]' },
+        sabotageHint: { line: 89, hint: 'Make both branches return self.transactions (no filter)', code: '        return self.transactions' },
+        validate: (lines) => {
+          const code = lines.join('\n');
+          const body = code.split('def get_transactions')[1]?.split('def ')[0] || '';
+          return /t\[0\]\s*==\s*type|filter|for\s+t\s+in/.test(body) &&
+                 body.split('return').length > 2;
+        },
+      },
+      {
+        name: 'transaction_count returns correct count',
+        section: 2,
+        fix: { line: 93, hint: 'Replace return 0 with return len(self.transactions)', code: '        return len(self.transactions)' },
+        sabotageHint: { line: 93, hint: 'Change return len(...) back to return 0', code: '        return 0' },
+        validate: (lines) => {
+          const code = lines.join('\n');
+          const body = code.split('def transaction_count')[1]?.split('def ')[0] || '';
+          return /return\s+len\(self\.transactions\)/.test(body) &&
+                 !/return\s+0/.test(body);
+        },
+      },
+      {
+        name: 'last_transaction returns last item',
+        section: 2,
+        fix: { line: 100, hint: 'Change [0] to [-1] to get the last item', code: '        return self.transactions[-1]' },
+        sabotageHint: { line: 100, hint: 'Change [-1] back to [0]', code: '        return self.transactions[0]' },
+        validate: (lines) => {
+          const code = lines.join('\n');
+          const body = code.split('def last_transaction')[1]?.split('def ')[0] || '';
+          return /self\.transactions\[-1\]/.test(body) &&
+                 !/self\.transactions\[0\]/.test(body);
+        },
+      },
+    ],
+  },
 
-  Security: [
-    {
-      id: 'sec_auth',
-      title: 'Fix Auth Module',
-      code: [
-        '# Auth Module — Fix 3 security bugs',
-        '',
-        'class Auth:',
-        '    def __init__(self):',
-        '        self.users = {}',
-        '        self.sessions = {}',
-        '',
-        '    # TODO: login always returns True',
-        '    def login(self, username, password):',
-        '        return True',
-        '',
-        '    # TODO: logout does nothing',
-        '    def logout(self, token):',
-        '        pass',
-        '',
-        '    # TODO: is_admin always True',
-        '    def is_admin(self, username):',
-        '        return True',
-      ],
-      tests: [
-        { name: 'login validates' },
-        { name: 'logout removes session' },
-        { name: 'is_admin checks role' },
-      ],
-      sabotages: [
-        { instruction: 'Make login always False', hint: 'Line 10', badLineIndex: 9 },
-        { instruction: 'Make logout corrupt sessions', hint: 'Line 14', badLineIndex: 13 },
-        { instruction: 'Make is_admin always False', hint: 'Line 18', badLineIndex: 17 },
-      ],
-    },
-    {
-      id: 'sec_hash',
-      title: 'Fix Password Hasher',
-      code: [
-        '# Password Hasher — Fix 3 bugs',
-        '',
-        'import hashlib',
-        '',
-        'class Hasher:',
-        '    # TODO: no salt used',
-        '    def hash_password(self, password):',
-        '        return hashlib.md5(password.encode()).hexdigest()',
-        '',
-        '    # TODO: verify always True',
-        '    def verify(self, password, hashed):',
-        '        return True',
-        '',
-        '    # TODO: strength check always passes',
-        '    def is_strong(self, password):',
-        '        return True',
-      ],
-      tests: [
-        { name: 'hash produces output' },
-        { name: 'verify checks correctly' },
-        { name: 'strength validates' },
-      ],
-      sabotages: [
-        { instruction: 'Make hash return empty string', hint: 'Line 8', badLineIndex: 7 },
-        { instruction: 'Make verify always False', hint: 'Line 12', badLineIndex: 11 },
-        { instruction: 'Make is_strong always False', hint: 'Line 16', badLineIndex: 15 },
-      ],
-    },
-    {
-      id: 'sec_sanitize',
-      title: 'Fix Input Sanitizer',
-      code: [
-        '# Input Sanitizer — Fix 3 bugs',
-        '',
-        'import re',
-        '',
-        'class Sanitizer:',
-        '    # TODO: sanitize returns input unchanged',
-        '    def sanitize(self, text):',
-        '        return text',
-        '',
-        '    # TODO: is_email always True',
-        '    def is_email(self, text):',
-        '        return True',
-        '',
-        '    # TODO: strip_tags does nothing',
-        '    def strip_tags(self, html):',
-        '        return html',
-      ],
-      tests: [
-        { name: 'sanitize strips html' },
-        { name: 'email validation works' },
-        { name: 'strip_tags works' },
-      ],
-      sabotages: [
-        { instruction: 'Make sanitize double input', hint: 'Line 8', badLineIndex: 7 },
-        { instruction: 'Make is_email always False', hint: 'Line 12', badLineIndex: 11 },
-        { instruction: 'Make strip_tags add script tag', hint: 'Line 16', badLineIndex: 15 },
-      ],
-    },
-    {
-      id: 'sec_ratelimit',
-      title: 'Fix Rate Limiter',
-      code: [
-        '# Rate Limiter — Fix 3 bugs',
-        '',
-        'import time',
-        '',
-        'class RateLimiter:',
-        '    def __init__(self, max_calls, period):',
-        '        self.max_calls = max_calls',
-        '        self.period = period',
-        '        self.calls = {}',
-        '',
-        '    # TODO: is_allowed always True',
-        '    def is_allowed(self, user_id):',
-        '        return True',
-        '',
-        '    # TODO: reset does not clear user',
-        '    def reset(self, user_id):',
-        '        pass',
-        '',
-        '    # TODO: count always returns 0',
-        '    def count(self, user_id):',
-        '        return 0',
-      ],
-      tests: [
-        { name: 'allows under limit' },
-        { name: 'blocks over limit' },
-        { name: 'count tracks calls' },
-      ],
-      sabotages: [
-        { instruction: 'Make is_allowed always False', hint: 'Line 13', badLineIndex: 12 },
-        { instruction: 'Make reset corrupt all users', hint: 'Line 16', badLineIndex: 15 },
-        { instruction: 'Make count always return 999', hint: 'Line 21', badLineIndex: 20 },
-      ],
-    },
-  ],
+  'Data Structures & Algorithms': {
+    id: 'dsa_search_sort',
+    title: 'Search & Sort Library',
+    language: 'python',
+    description: 'A utility library with binary search, merge sort, and analysis tools.',
+    impostorGoals: [
+      'Change mid+1 back to mid in binary search',
+      'Break the merge step in merge sort',
+      'Make count_comparisons return 0',
+    ],
+    sections: [
+      { title: 'Binary Search',  startLine: 0,  endLine: 28 },
+      { title: 'Merge Sort',     startLine: 29, endLine: 60 },
+      { title: 'Analysis Tools', startLine: 61, endLine: 85 },
+    ],
+    code: [
+      '# Search & Sort Library — Fix all bugs across 3 sections',
+      '# Work together to pass all 9 tests',
+      '',
+      '# ═══ SECTION 1: Binary Search ═══',
+      '',
+      '# BUG: right should be len(arr) - 1',
+      'def binary_search(arr, target):',
+      '    left, right = 0, len(arr)',
+      '    while left <= right:',
+      '        mid = (left + right) // 2',
+      '        if arr[mid] == target:',
+      '            return mid',
+      '        elif arr[mid] < target:',
+      '            # BUG: should be mid + 1',
+      '            left = mid',
+      '        else:',
+      '            # BUG: should be mid - 1',
+      '            right = mid',
+      '    return -1',
+      '',
+      '# BUG: should search all elements, not arr[1:]',
+      'def search_all(arr, target):',
+      '    results = []',
+      '    for i, val in enumerate(arr[1:]):',
+      '        if val == target:',
+      '            results.append(i)',
+      '    return results',
+      '',
+      '# ═══ SECTION 2: Merge Sort ═══',
+      '',
+      'def merge_sort(arr):',
+      '    if len(arr) <= 1:',
+      '        return arr',
+      '    mid = len(arr) // 2',
+      '    left  = merge_sort(arr[:mid])',
+      '    right = merge_sort(arr[mid:])',
+      '    return merge(left, right)',
+      '',
+      'def merge(left, right):',
+      '    result = []',
+      '    i = j = 0',
+      '    while i < len(left) and j < len(right):',
+      '        # BUG: should be <=, not <',
+      '        if left[i] < right[j]:',
+      '            result.append(left[i])',
+      '            i += 1',
+      '        else:',
+      '            result.append(right[j])',
+      '            j += 1',
+      '    # BUG: missing remainder — should extend with both leftovers',
+      '    result.extend(left[i:])',
+      '    return result',
+      '',
+      '# ═══ SECTION 3: Analysis Tools ═══',
+      '',
+      '# BUG: always returns 0',
+      'def count_comparisons(arr, target):',
+      '    count = 0',
+      '    for item in arr:',
+      '        count += 1',
+      '        if item == target:',
+      '            break',
+      '    return 0',
+      '',
+      '# BUG: is_sorted checks wrong direction',
+      'def is_sorted(arr, ascending=True):',
+      '    for i in range(len(arr) - 1):',
+      '        if ascending and arr[i] > arr[i + 1]:',
+      '            return False',
+      '        if not ascending and arr[i] < arr[i + 1]:',
+      '            return False',
+      '    return True',
+      '',
+      '# BUG: returns minimum instead of maximum',
+      'def find_max(arr):',
+      '    if not arr:',
+      '        return None',
+      '    return min(arr)',
+    ],
+    tests: [
+      {
+        name: 'binary_search right boundary correct',
+        section: 0,
+        validate: (lines) => {
+          const code = lines.join('\n');
+          // Strip comments first so 'right = len(arr) - 1' in a comment doesn't count
+          const body = code.split('def binary_search')[1]?.split('def ')[0] || '';
+          const noComments = body.split('\n').map(l => l.replace(/#.*$/, '')).join('\n');
+          return /len\(arr\)\s*-\s*1/.test(noComments);
+        },
+      },
+      {
+        name: 'binary_search pointers advance correctly',
+        section: 0,
+        validate: (lines) => {
+          const code = lines.join('\n');
+          return /left\s*=\s*mid\s*\+\s*1/.test(code) &&
+                 /right\s*=\s*mid\s*-\s*1/.test(code);
+        },
+      },
+      {
+        name: 'search_all searches from index 0',
+        section: 0,
+        validate: (lines) => {
+          const code = lines.join('\n');
+          const body = code.split('def search_all')[1]?.split('def ')[0] || '';
+          return /enumerate\(arr\)/.test(body) && !/arr\[1:\]/.test(body);
+        },
+      },
+      {
+        name: 'merge_sort comparison uses <=',
+        section: 1,
+        validate: (lines) => {
+          const code = lines.join('\n');
+          const body = code.split('def merge(')[1]?.split('def ')[0] || '';
+          return /left\[i\]\s*<=\s*right\[j\]/.test(body);
+        },
+      },
+      {
+        name: 'merge includes both remainders',
+        section: 1,
+        validate: (lines) => {
+          const code = lines.join('\n');
+          const body = code.split('def merge(')[1]?.split('def ')[0] || '';
+          // Accept .extend() or += forms, with optional whitespace inside brackets
+          const hasLeft  = /result\.extend\(left\[i:\s*\]\)|result\s*\+=\s*left\[i:\s*\]/.test(body);
+          const hasRight = /result\.extend\(right\[j:\s*\]\)|result\s*\+=\s*right\[j:\s*\]/.test(body);
+          return hasLeft && hasRight;
+        },
+      },
+      {
+        name: 'merge_sort returns sorted array',
+        section: 1,
+        validate: (lines) => {
+          const code = lines.join('\n');
+          return /def merge_sort/.test(code) &&
+                 /return merge\(/.test(code) &&
+                 /def merge\(/.test(code);
+        },
+      },
+      {
+        name: 'count_comparisons returns count not 0',
+        section: 2,
+        validate: (lines) => {
+          const code = lines.join('\n');
+          const body = code.split('def count_comparisons')[1]?.split('def ')[0] || '';
+          return /return\s+count/.test(body) && !/return\s+0/.test(body);
+        },
+      },
+      {
+        name: 'is_sorted correctly checks order',
+        section: 2,
+        validate: (lines) => {
+          const code = lines.join('\n');
+          const body = code.split('def is_sorted')[1]?.split('def ')[0] || '';
+          return /arr\[i\]\s*>\s*arr\[i\s*\+\s*1\]/.test(body) &&
+                 /arr\[i\]\s*<\s*arr\[i\s*\+\s*1\]/.test(body);
+        },
+      },
+      {
+        name: 'find_max returns maximum not minimum',
+        section: 2,
+        validate: (lines) => {
+          const code = lines.join('\n');
+          const body = code.split('def find_max')[1]?.split('def ')[0] || '';
+          return /return\s+max\(arr\)/.test(body) && !/return\s+min\(arr\)/.test(body);
+        },
+      },
+    ],
+  },
 
-  'Front-End': [
-    {
-      id: 'fe_dom',
-      title: 'Fix DOM Manager',
-      code: [
-        '// DOM Manager — Fix 3 TODOs',
-        '',
-        'class DOMManager {',
-        '  // TODO: createElement returns null',
-        '  createElement(tag, text) {',
-        '    return null;',
-        '  }',
-        '',
-        '  // TODO: addClass does nothing',
-        '  addClass(el, cls) {',
-        '    // missing implementation',
-        '  }',
-        '',
-        '  // TODO: setStyle overwrites all styles',
-        '  setStyle(el, prop, val) {',
-        '    el.style = val;',
-        '  }',
-        '}',
-      ],
-      tests: [
-        { name: 'createElement works' },
-        { name: 'addClass adds class' },
-        { name: 'setStyle sets property' },
-      ],
-      sabotages: [
-        { instruction: 'Make createElement throw an error', hint: 'Line 6', badLineIndex: 5 },
-        { instruction: 'Make addClass remove the class', hint: 'Line 11', badLineIndex: 10 },
-        { instruction: 'Make setStyle clear all styles', hint: 'Line 16', badLineIndex: 15 },
-      ],
-    },
-    {
-      id: 'fe_state',
-      title: 'Fix State Manager',
-      code: [
-        '// Mini State Manager — Fix 3 TODOs',
-        '',
-        'class Store {',
-        '  constructor(initial) {',
-        '    this.state = initial;',
-        '    this.listeners = [];',
-        '  }',
-        '',
-        '  // TODO: getState returns undefined',
-        '  getState() {',
-        '    return undefined;',
-        '  }',
-        '',
-        '  // TODO: setState does not merge',
-        '  setState(patch) {',
-        '    this.state = patch;',
-        '  }',
-        '',
-        '  // TODO: subscribe never calls listener',
-        '  subscribe(fn) {',
-        '    this.listeners.push(fn);',
-        '  }',
-        '}',
-      ],
-      tests: [
-        { name: 'getState returns state' },
-        { name: 'setState merges' },
-        { name: 'subscribe notifies' },
-      ],
-      sabotages: [
-        { instruction: 'Make getState return null', hint: 'Line 11', badLineIndex: 10 },
-        { instruction: 'Make setState clear all state', hint: 'Line 16', badLineIndex: 15 },
-        { instruction: 'Make subscribe remove listeners', hint: 'Line 21', badLineIndex: 20 },
-      ],
-    },
-    {
-      id: 'fe_router',
-      title: 'Fix Mini Router',
-      code: [
-        '// Mini Router — Fix 3 TODOs',
-        '',
-        'class Router {',
-        '  constructor() {',
-        '    this.routes = {};',
-        '    this.current = "/";',
-        '  }',
-        '',
-        '  // TODO: register does not save route',
-        '  register(path, handler) {',
-        '    // missing',
-        '  }',
-        '',
-        '  // TODO: navigate does not update current',
-        '  navigate(path) {',
-        '    // missing',
-        '  }',
-        '',
-        '  // TODO: getCurrent returns null',
-        '  getCurrent() {',
-        '    return null;',
-        '  }',
-        '}',
-      ],
-      tests: [
-        { name: 'register saves route' },
-        { name: 'navigate updates path' },
-        { name: 'getCurrent is correct' },
-      ],
-      sabotages: [
-        { instruction: 'Make register delete route', hint: 'Line 11', badLineIndex: 10 },
-        { instruction: 'Make navigate always go to "/"', hint: 'Line 16', badLineIndex: 15 },
-        { instruction: 'Make getCurrent return "/"', hint: 'Line 21', badLineIndex: 20 },
-      ],
-    },
-    {
-      id: 'fe_validator',
-      title: 'Fix Form Validator',
-      code: [
-        '// Form Validator — Fix 3 TODOs',
-        '',
-        'class Validator {',
-        '  // TODO: required always passes',
-        '  required(val) {',
-        '    return true;',
-        '  }',
-        '',
-        '  // TODO: minLength always passes',
-        '  minLength(val, min) {',
-        '    return true;',
-        '  }',
-        '',
-        '  // TODO: isEmail always passes',
-        '  isEmail(val) {',
-        '    return true;',
-        '  }',
-        '}',
-      ],
-      tests: [
-        { name: 'required catches empty' },
-        { name: 'minLength checks length' },
-        { name: 'isEmail validates format' },
-      ],
-      sabotages: [
-        { instruction: 'Make required always fail', hint: 'Line 6', badLineIndex: 5 },
-        { instruction: 'Make minLength always fail', hint: 'Line 11', badLineIndex: 10 },
-        { instruction: 'Make isEmail always fail', hint: 'Line 16', badLineIndex: 15 },
-      ],
-    },
-  ],
+  'Security': {
+    id: 'sec_auth_system',
+    title: 'Auth & Permission System',
+    language: 'python',
+    description: 'A complete authentication and permission management system.',
+    impostorGoals: [
+      'Make password hashing use md5 instead of sha256',
+      'Make token validation always return True',
+      'Remove the admin check from has_permission',
+    ],
+    sections: [
+      { title: 'Password & Hashing',    startLine: 0,  endLine: 28 },
+      { title: 'Token Management',      startLine: 29, endLine: 55 },
+      { title: 'Permission System',     startLine: 56, endLine: 80 },
+    ],
+    code: [
+      '# Auth & Permission System — Fix all bugs across 3 sections',
+      '# Work together to pass all 9 tests',
+      '',
+      '# ═══ SECTION 1: Password & Hashing ═══',
+      '',
+      'import hashlib, secrets, time',
+      '',
+      '# BUG: uses md5 instead of sha256',
+      'def hash_password(password, salt=None):',
+      '    if salt is None:',
+      '        salt = secrets.token_hex(16)',
+      '    hashed = hashlib.md5((password + salt).encode()).hexdigest()',
+      '    return f"{salt}:{hashed}"',
+      '',
+      '# BUG: always returns True',
+      'def verify_password(password, stored_hash):',
+      '    salt, _ = stored_hash.split(":")',
+      '    return True',
+      '',
+      '# BUG: min length is 4, should be 8',
+      'def is_strong_password(password):',
+      '    if len(password) < 4:',
+      '        return False',
+      '    has_upper = any(c.isupper() for c in password)',
+      '    has_digit = any(c.isdigit() for c in password)',
+      '    return has_upper and has_digit',
+      '',
+      '# ═══ SECTION 2: Token Management ═══',
+      '',
+      'tokens = {}',
+      '',
+      '# BUG: expiry is 0 seconds (should be 3600)',
+      'def create_token(user_id):',
+      '    token = secrets.token_hex(32)',
+      '    tokens[token] = {',
+      '        "user_id": user_id,',
+      '        "expires": time.time() + 0',
+      '    }',
+      '    return token',
+      '',
+      '# BUG: does not check expiry',
+      'def validate_token(token):',
+      '    if token not in tokens:',
+      '        return None',
+      '    return tokens[token]["user_id"]',
+      '',
+      '# BUG: does not delete from tokens dict',
+      'def revoke_token(token):',
+      '    if token in tokens:',
+      '        pass',
+      '',
+      '# ═══ SECTION 3: Permission System ═══',
+      '',
+      'user_roles = {}',
+      '',
+      'def assign_role(user_id, role):',
+      '    user_roles[user_id] = role',
+      '',
+      '# BUG: admin always gets False',
+      'def has_permission(user_id, permission):',
+      '    role = user_roles.get(user_id, "guest")',
+      '    permissions = {',
+      '        "admin":  [],',
+      '        "editor": ["read", "write"],',
+      '        "viewer": ["read"],',
+      '        "guest":  []',
+      '    }',
+      '    return permission in permissions.get(role, [])',
+      '',
+      '# BUG: returns opposite — should return True if admin',
+      'def is_admin(user_id):',
+      '    return user_roles.get(user_id) != "admin"',
+      '',
+      '# BUG: allows empty permission string',
+      'def validate_permission_name(name):',
+      '    return isinstance(name, str)',
+    ],
+    tests: [
+      {
+        name: 'hash_password uses sha256',
+        section: 0,
+        validate: (lines) => {
+          const code = lines.join('\n');
+          const body = code.split('def hash_password')[1]?.split('def ')[0] || '';
+          return /sha256/.test(body) && !/md5/.test(body);
+        },
+      },
+      {
+        name: 'verify_password checks the hash',
+        section: 0,
+        validate: (lines) => {
+          const code = lines.join('\n');
+          const body = code.split('def verify_password')[1]?.split('def ')[0] || '';
+          // Must NOT just return True, AND must have an actual comparison
+          // using hash_password or hexdigest, with == to compare two values
+          return !/return\s+True/.test(body) &&
+                 /hash_password|hexdigest/.test(body) &&
+                 /==/.test(body);
+        },
+      },
+      {
+        name: 'is_strong_password requires length 8',
+        section: 0,
+        validate: (lines) => {
+          const code = lines.join('\n');
+          const body = code.split('def is_strong_password')[1]?.split('def ')[0] || '';
+          return /len\(password\)\s*<\s*8/.test(body);
+        },
+      },
+      {
+        name: 'create_token sets 1 hour expiry',
+        section: 1,
+        validate: (lines) => {
+          const code = lines.join('\n');
+          const body = code.split('def create_token')[1]?.split('def ')[0] || '';
+          return /time\.time\(\)\s*\+\s*3600/.test(body);
+        },
+      },
+      {
+        name: 'validate_token checks expiry',
+        section: 1,
+        validate: (lines) => {
+          const code = lines.join('\n');
+          const body = code.split('def validate_token')[1]?.split('def ')[0] || '';
+          return /time\.time\(\)|expires/.test(body);
+        },
+      },
+      {
+        name: 'revoke_token removes from tokens',
+        section: 1,
+        validate: (lines) => {
+          const code = lines.join('\n');
+          const body = code.split('def revoke_token')[1]?.split('def ')[0] || '';
+          // Strip comments, then require del or pop — no comment trickery
+          const noComments = body.split('\n').map(l => l.replace(/#.*$/, '')).join('\n');
+          return /del\s+tokens\[token\]|tokens\.pop\(token\)/.test(noComments);
+        },
+      },
+      {
+        name: 'has_permission grants admin all rights',
+        section: 2,
+        validate: (lines) => {
+          const code = lines.join('\n');
+          const body = code.split('def has_permission')[1]?.split('def ')[0] || '';
+          // Extract specifically what's inside the admin array: "admin": [   ...   ]
+          // Then verify read, write, delete are all inside that extracted slice
+          const adminMatch = body.match(/"admin"\s*:\s*\[([^\]]*)]/);
+          if (!adminMatch) return false;
+          const adminPerms = adminMatch[1];
+          return /"read"/.test(adminPerms) &&
+                 /"write"/.test(adminPerms) &&
+                 /"delete"/.test(adminPerms);
+        },
+      },
+      {
+        name: 'is_admin returns True for admins',
+        section: 2,
+        validate: (lines) => {
+          const code = lines.join('\n');
+          const body = code.split('def is_admin')[1]?.split('def ')[0] || '';
+          return /==\s*"admin"/.test(body) && !/!=\s*"admin"/.test(body);
+        },
+      },
+      {
+        name: 'validate_permission_name rejects empty string',
+        section: 2,
+        validate: (lines) => {
+          const code = lines.join('\n');
+          const body = code.split('def validate_permission_name')[1]?.split('def ')[0] || '';
+          return /len\(name\)\s*>\s*0|name\s*!=\s*""|bool\(name\)/.test(body);
+        },
+      },
+    ],
+  },
 
-  'Back-End': [
-    {
-      id: 'be_middleware',
-      title: 'Fix Express Middleware',
-      code: [
-        '// Express Middleware — Fix 3 TODOs',
-        '',
-        'const logger = (req, res, next) => {',
-        '  // TODO: never calls next()',
-        '  console.log(req.method, req.url);',
-        '};',
-        '',
-        'const auth = (req, res, next) => {',
-        '  const token = req.headers.authorization;',
-        '  // TODO: always blocks even with valid token',
-        '  res.status(401).json({ error: "Unauthorized" });',
-        '};',
-        '',
-        'const errorHandler = (err, req, res, next) => {',
-        '  // TODO: does not send response',
-        '  console.error(err);',
-        '};',
-      ],
-      tests: [
-        { name: 'logger calls next' },
-        { name: 'auth allows valid token' },
-        { name: 'errorHandler responds' },
-      ],
-      sabotages: [
-        { instruction: 'Make logger throw an error', hint: 'Line 5', badLineIndex: 4 },
-        { instruction: 'Make auth always pass (no check)', hint: 'Line 11', badLineIndex: 10 },
-        { instruction: 'Make errorHandler send 200', hint: 'Line 16', badLineIndex: 15 },
-      ],
-    },
-    {
-      id: 'be_db',
-      title: 'Fix DB Query Builder',
-      code: [
-        '// Query Builder — Fix 3 TODOs',
-        '',
-        'class QueryBuilder {',
-        '  constructor() { this.query = ""; }',
-        '',
-        '  // TODO: select overwrites query instead of setting it',
-        '  select(table) {',
-        '    this.query += `SELECT * FROM ${table}`;',
-        '    return this;',
-        '  }',
-        '',
-        '  // TODO: where does not add condition',
-        '  where(condition) {',
-        '    return this;',
-        '  }',
-        '',
-        '  // TODO: build returns empty string',
-        '  build() {',
-        '    return "";',
-        '  }',
-        '}',
-      ],
-      tests: [
-        { name: 'select builds query' },
-        { name: 'where adds condition' },
-        { name: 'build returns query' },
-      ],
-      sabotages: [
-        { instruction: 'Make select corrupt query', hint: 'Line 8', badLineIndex: 7 },
-        { instruction: 'Make where clear the query', hint: 'Line 14', badLineIndex: 13 },
-        { instruction: 'Make build return "DROP TABLE users"', hint: 'Line 19', badLineIndex: 18 },
-      ],
-    },
-    {
-      id: 'be_cache',
-      title: 'Fix Cache Layer',
-      code: [
-        '// Cache Layer — Fix 3 TODOs',
-        '',
-        'class Cache {',
-        '  constructor(ttl) {',
-        '    this.ttl = ttl;',
-        '    this.store = {};',
-        '    this.timestamps = {};',
-        '  }',
-        '',
-        '  // TODO: set does not store value',
-        '  set(key, value) {',
-        '    this.timestamps[key] = Date.now();',
-        '  }',
-        '',
-        '  // TODO: get never returns value',
-        '  get(key) {',
-        '    return undefined;',
-        '  }',
-        '',
-        '  // TODO: has always returns false',
-        '  has(key) {',
-        '    return false;',
-        '  }',
-        '}',
-      ],
-      tests: [
-        { name: 'set stores value' },
-        { name: 'get retrieves value' },
-        { name: 'has returns true' },
-      ],
-      sabotages: [
-        { instruction: 'Make set delete the key', hint: 'Line 12', badLineIndex: 11 },
-        { instruction: 'Make get always return null', hint: 'Line 17', badLineIndex: 16 },
-        { instruction: 'Make has always return true', hint: 'Line 22', badLineIndex: 21 },
-      ],
-    },
-    {
-      id: 'be_api',
-      title: 'Fix API Response Helper',
-      code: [
-        '// API Response Helper — Fix 3 TODOs',
-        '',
-        'class ApiResponse {',
-        '  // TODO: success always sends 500',
-        '  success(res, data) {',
-        '    res.status(500).json(data);',
-        '  }',
-        '',
-        '  // TODO: error always sends 200',
-        '  error(res, message, code = 400) {',
-        '    res.status(200).json({ error: message });',
-        '  }',
-        '',
-        '  // TODO: paginate ignores page/limit',
-        '  paginate(res, items, page, limit) {',
-        '    res.json({ items });',
-        '  }',
-        '}',
-      ],
-      tests: [
-        { name: 'success sends 200' },
-        { name: 'error sends correct code' },
-        { name: 'paginate slices items' },
-      ],
-      sabotages: [
-        { instruction: 'Make success send 418', hint: 'Line 6', badLineIndex: 5 },
-        { instruction: 'Make error send 500 always', hint: 'Line 11', badLineIndex: 10 },
-        { instruction: 'Make paginate return empty array', hint: 'Line 16', badLineIndex: 15 },
-      ],
-    },
-  ],
+  'Front-End': {
+    id: 'fe_component_system',
+    title: 'UI Component System',
+    language: 'javascript',
+    description: 'A component system with state management, routing, and DOM utilities.',
+    impostorGoals: [
+      'Make setState replace state instead of merging',
+      'Make navigate not update the current route',
+      'Break the event listener cleanup',
+    ],
+    sections: [
+      { title: 'State Management', startLine: 0,  endLine: 30 },
+      { title: 'Router',          startLine: 31, endLine: 58 },
+      { title: 'DOM Utilities',   startLine: 59, endLine: 85 },
+    ],
+    code: [
+      '// UI Component System — Fix all bugs across 3 sections',
+      '// Work together to pass all 9 tests',
+      '',
+      '// ═══ SECTION 1: State Management ═══',
+      '',
+      'class Store {',
+      '  constructor(initial) {',
+      '    this.state = initial;',
+      '    this.listeners = [];',
+      '    this.history = [];',
+      '  }',
+      '',
+      '  // BUG: replaces state instead of merging',
+      '  setState(patch) {',
+      '    this.history.push(this.state);',
+      '    this.state = patch;',
+      '    this.listeners.forEach(fn => fn(this.state));',
+      '  }',
+      '',
+      '  // BUG: returns undefined',
+      '  getState() {',
+      '    return undefined;',
+      '  }',
+      '',
+      '  // BUG: never removes listener on unsubscribe',
+      '  subscribe(fn) {',
+      '    this.listeners.push(fn);',
+      '    return () => {};',
+      '  }',
+      '',
+      '  // BUG: undo does nothing',
+      '  undo() {',
+      '    if (this.history.length === 0) return;',
+      '    const prev = this.history.pop();',
+      '  }',
+      '',
+      '// ═══ SECTION 2: Router ═══',
+      '',
+      'class Router {',
+      '  constructor() {',
+      '    this.routes = {};',
+      '    this.current = "/";',
+      '    this.beforeEach = null;',
+      '  }',
+      '',
+      '  // BUG: does not save the route handler',
+      '  register(path, handler) {',
+      '    // missing',
+      '  }',
+      '',
+      '  // BUG: does not update this.current',
+      '  navigate(path) {',
+      '    if (this.beforeEach) this.beforeEach(path);',
+      '    const handler = this.routes[path];',
+      '    if (handler) handler();',
+      '  }',
+      '',
+      '  // BUG: returns null',
+      '  getCurrent() {',
+      '    return null;',
+      '  }',
+      '',
+      '  use(middleware) {',
+      '    this.beforeEach = middleware;',
+      '  }',
+      '',
+      '// ═══ SECTION 3: DOM Utilities ═══',
+      '',
+      'class DOMUtils {',
+      '  // BUG: returns null instead of creating element',
+      '  createElement(tag, attrs = {}, text = "") {',
+      '    return null;',
+      '  }',
+      '',
+      '  // BUG: does nothing',
+      '  addClass(el, ...classes) {',
+      '    // missing',
+      '  }',
+      '',
+      '  // BUG: never removes old listener before adding new one',
+      '  on(el, event, handler) {',
+      '    el.addEventListener(event, handler);',
+      '  }',
+      '',
+      '  // BUG: sets property incorrectly',
+      '  setStyle(el, prop, val) {',
+      '    el.style = val;',
+      '  }',
+      '',
+      '  // BUG: returns innerHTML not textContent',
+      '  getText(el) {',
+      '    return el.innerHTML;',
+      '  }',
+      '}',
+    ],
+    tests: [
+      {
+        name: 'setState merges state',
+        section: 0,
+        validate: (lines) => {
+          const code = lines.join('\n');
+          const body = code.split('setState(patch)')[1]?.split('getState')[0] || '';
+          return /\.\.\.this\.state|Object\.assign/.test(body);
+        },
+      },
+      {
+        name: 'getState returns this.state',
+        section: 0,
+        validate: (lines) => {
+          const code = lines.join('\n');
+          const body = code.split('getState()')[1]?.split('subscribe')[0] || '';
+          return /return\s+this\.state/.test(body) && !/return\s+undefined/.test(body);
+        },
+      },
+      {
+        name: 'subscribe returns working unsubscribe',
+        section: 0,
+        validate: (lines) => {
+          const code = lines.join('\n');
+          const body = code.split('subscribe(fn)')[1]?.split('undo')[0] || '';
+          return /filter|splice|indexOf/.test(body);
+        },
+      },
+      {
+        name: 'register saves route handler',
+        section: 1,
+        validate: (lines) => {
+          const code = lines.join('\n');
+          const body = code.split('register(path')[1]?.split('navigate')[0] || '';
+          return /this\.routes\[path\]\s*=\s*handler/.test(body);
+        },
+      },
+      {
+        name: 'navigate updates current path',
+        section: 1,
+        validate: (lines) => {
+          const code = lines.join('\n');
+          const body = code.split('navigate(path)')[1]?.split('getCurrent')[0] || '';
+          return /this\.current\s*=\s*path/.test(body);
+        },
+      },
+      {
+        name: 'getCurrent returns current route',
+        section: 1,
+        validate: (lines) => {
+          const code = lines.join('\n');
+          const body = code.split('getCurrent()')[1]?.split('use(')[0] || '';
+          return /return\s+this\.current/.test(body) && !/return\s+null/.test(body);
+        },
+      },
+      {
+        name: 'createElement creates real element',
+        section: 2,
+        validate: (lines) => {
+          const code = lines.join('\n');
+          const body = code.split('createElement(tag')[1]?.split('addClass')[0] || '';
+          return /document\.createElement/.test(body) && !/return\s+null/.test(body);
+        },
+      },
+      {
+        name: 'addClass uses classList',
+        section: 2,
+        validate: (lines) => {
+          const code = lines.join('\n');
+          const body = code.split('addClass(el')[1]?.split('on(el')[0] || '';
+          return /classList\.(add|toggle)/.test(body);
+        },
+      },
+      {
+        name: 'setStyle sets individual property',
+        section: 2,
+        validate: (lines) => {
+          const code = lines.join('\n');
+          const body = code.split('setStyle(el')[1]?.split('getText')[0] || '';
+          return /el\.style\[prop\]|el\.style\./.test(body.replace('el.style = val', '')) &&
+                 !/el\.style\s*=\s*val/.test(body);
+        },
+      },
+    ],
+  },
+
+  'Back-End': {
+    id: 'be_api_server',
+    title: 'REST API Server',
+    language: 'javascript',
+    description: 'An Express-style API server with middleware, routing, and caching.',
+    impostorGoals: [
+      'Remove next() from the logger middleware',
+      'Make the cache always return undefined',
+      'Make the rate limiter always allow requests',
+    ],
+    sections: [
+      { title: 'Middleware Pipeline', startLine: 0,  endLine: 30 },
+      { title: 'Route Handler',       startLine: 31, endLine: 58 },
+      { title: 'Cache & Rate Limit',  startLine: 59, endLine: 85 },
+    ],
+    code: [
+      '// REST API Server — Fix all bugs across 3 sections',
+      '// Work together to pass all 9 tests',
+      '',
+      '// ═══ SECTION 1: Middleware Pipeline ═══',
+      '',
+      '// BUG: never calls next()',
+      'const logger = (req, res, next) => {',
+      '  const timestamp = new Date().toISOString();',
+      '  console.log(`[${timestamp}] ${req.method} ${req.url}`);',
+      '};',
+      '',
+      '// BUG: blocks valid tokens',
+      'const auth = (req, res, next) => {',
+      '  const token = req.headers.authorization?.replace("Bearer ", "");',
+      '  if (!token) {',
+      '    return res.status(401).json({ error: "No token" });',
+      '  }',
+      '  res.status(403).json({ error: "Forbidden" });',
+      '};',
+      '',
+      '// BUG: does not send error response',
+      'const errorHandler = (err, req, res, next) => {',
+      '  console.error(err.stack);',
+      '};',
+      '',
+      '// BUG: does not attach parsed body to req',
+      'const jsonParser = (req, res, next) => {',
+      '  let body = "";',
+      '  req.on("data", chunk => { body += chunk; });',
+      '  req.on("end", () => {',
+      '    next();',
+      '  });',
+      '};',
+      '',
+      '// ═══ SECTION 2: Route Handler ═══',
+      '',
+      'class Router {',
+      '  constructor() {',
+      '    this.routes = {};',
+      '  }',
+      '',
+      '  // BUG: key should be `${method}:${path}`, uses only path',
+      '  register(method, path, handler) {',
+      '    this.routes[path] = handler;',
+      '  }',
+      '',
+      '  // BUG: does not pass params to handler',
+      '  handle(req, res) {',
+      '    const key = `${req.method}:${req.path}`;',
+      '    const handler = this.routes[key];',
+      '    if (!handler) {',
+      '      return res.status(404).json({ error: "Not found" });',
+      '    }',
+      '    handler(req, res);',
+      '  }',
+      '',
+      '  // BUG: params extracted wrong (off by one)',
+      '  extractParams(pattern, path) {',
+      '    const keys = (pattern.match(/:[a-z]+/g) || []).map(k => k.slice(2));',
+      '    const values = path.split("/").slice(2);',
+      '    return Object.fromEntries(keys.map((k, i) => [k, values[i]]));',
+      '  }',
+      '}',
+      '',
+      '// ═══ SECTION 3: Cache & Rate Limit ═══',
+      '',
+      'class Cache {',
+      '  constructor(ttl = 60) {',
+      '    this.store = {};',
+      '    this.ttl = ttl;',
+      '  }',
+      '',
+      '  // BUG: stores entry but get always returns undefined',
+      '  set(key, value) {',
+      '    this.store[key] = { value, expires: Date.now() + this.ttl * 1000 };',
+      '  }',
+      '',
+      '  get(key) {',
+      '    const entry = this.store[key];',
+      '    if (!entry || Date.now() > entry.expires) return undefined;',
+      '    return undefined;',
+      '  }',
+      '',
+      '  // BUG: always returns true even when rate exceeded',
+      '  isRateLimited(ip, maxReq = 10) {',
+      '    if (!this.store[ip]) this.store[ip] = { count: 0, expires: Date.now() + 60000 };',
+      '    this.store[ip].count++;',
+      '    return true;',
+      '  }',
+      '',
+      '  // BUG: does not delete expired entries',
+      '  cleanup() {',
+      '    const now = Date.now();',
+      '  }',
+      '}',
+    ],
+    tests: [
+      {
+        name: 'logger calls next()',
+        section: 0,
+        validate: (lines) => {
+          const code = lines.join('\n');
+          const body = code.split('const logger')[1]?.split('const auth')[0] || '';
+          return /next\(\)/.test(body);
+        },
+      },
+      {
+        name: 'auth allows valid tokens',
+        section: 0,
+        validate: (lines) => {
+          const code = lines.join('\n');
+          const body = code.split('const auth')[1]?.split('const errorHandler')[0] || '';
+          return /next\(\)/.test(body) && !/status\(403\)/.test(body);
+        },
+      },
+      {
+        name: 'errorHandler sends error response',
+        section: 0,
+        validate: (lines) => {
+          const code = lines.join('\n');
+          const body = code.split('const errorHandler')[1]?.split('const jsonParser')[0] || '';
+          return /res\.status|res\.json|res\.send/.test(body);
+        },
+      },
+      {
+        name: 'register uses method+path as key',
+        section: 1,
+        validate: (lines) => {
+          const code = lines.join('\n');
+          const body = code.split('register(method')[1]?.split('handle(')[0] || '';
+          return /this\.routes\[`\$\{method\}/.test(body) ||
+                 /this\.routes\[method/.test(body);
+        },
+      },
+      {
+        name: 'handle passes params to handler',
+        section: 1,
+        validate: (lines) => {
+          const code = lines.join('\n');
+          const body = code.split('handle(req')[1]?.split('extractParams')[0] || '';
+          return /extractParams|params/.test(body) &&
+                 /handler\(req,\s*res,\s*params\)|req\.params/.test(body);
+        },
+      },
+      {
+        name: 'extractParams slices from index 1',
+        section: 1,
+        validate: (lines) => {
+          const code = lines.join('\n');
+          const body = code.split('extractParams(')[1]?.split('}')[0] || '';
+          return /slice\(1\)/.test(body) && !/slice\(2\)/.test(body);
+        },
+      },
+      {
+        name: 'cache get returns stored value',
+        section: 2,
+        validate: (lines) => {
+          const code = lines.join('\n');
+          const body = code.split('get(key)')[1]?.split('isRateLimited')[0] || '';
+          return /return\s+entry\.value/.test(body) &&
+                 !/return\s+undefined/.test(body.split('if (!entry')[1] || '');
+        },
+      },
+      {
+        name: 'isRateLimited blocks when over limit',
+        section: 2,
+        validate: (lines) => {
+          const code = lines.join('\n');
+          const body = code.split('isRateLimited(')[1]?.split('cleanup')[0] || '';
+          return /count\s*>=\s*maxReq|count\s*>\s*maxReq/.test(body) &&
+                 !/return\s+true/.test(body.split('count')[1]?.split('\n')[0] || '');
+        },
+      },
+      {
+        name: 'cleanup removes expired entries',
+        section: 2,
+        validate: (lines) => {
+          const code = lines.join('\n');
+          const body = code.split('cleanup()')[1]?.split('}')[0] || '';
+          return /delete\s+this\.store|filter|Object\.keys/.test(body) &&
+                 body.trim().split('\n').length > 2;
+        },
+      },
+    ],
+  },
 };
 
-function getChallengesForCategory(category) {
+function getChallengeForCategory(category) {
   return challenges[category] || challenges['Object-Oriented Programming'];
 }
 
-function getChallengeForRound(category, round) {
-  const list = getChallengesForCategory(category);
-  return list[(round - 1) % list.length];
-}
-
-module.exports = { challenges, getChallengesForCategory, getChallengeForRound };
+module.exports = { challenges, getChallengeForCategory };

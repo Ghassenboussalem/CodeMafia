@@ -10,7 +10,7 @@ const ROLES = [
 ];
 
 export default function CompleteProfileScreen() {
-  const { user, completeProfile } = useAuth();
+  const { user, completeProfile, logout } = useAuth();
   const setScreen = useGameStore((s) => s.setScreen);
 
   const [username, setUsername] = useState(user?.username || '');
@@ -36,12 +36,24 @@ export default function CompleteProfileScreen() {
     }
   }
 
+  async function handleCancel() {
+    // Log them out and go back to menu
+    await logout();
+    setScreen('menu');
+  }
+
   return (
     <div style={{
       position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column',
       alignItems: 'center', justifyContent: 'center', zIndex: 10,
-      overflowY: 'auto', padding: '20px 0',
+      overflowY: 'auto', padding: '20px 16px',
     }}>
+
+      {/* Back = cancel and logout */}
+      <button onClick={handleCancel} className="back-corner">
+        ← CANCEL
+      </button>
+
       <div className="title-area">
         <span className="title-code">CODE</span>
         <span className="title-mafia">MAFIA</span>
@@ -50,19 +62,32 @@ export default function CompleteProfileScreen() {
 
       <div className="dialog" style={{ width: 400 }}>
 
-        {/* Google avatar if available */}
-        {user?.avatar_url && (
-          <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 16 }}>
-            <img
-              src={user.avatar_url}
-              alt="avatar"
-              style={{
-                width: 56, height: 56, borderRadius: '50%',
-                border: '3px solid #8b7355', boxShadow: '3px 3px 0 #5a4a30',
-              }}
-            />
+        {/* Avatar — fixed with referrerPolicy */}
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginBottom: 16, gap: 4 }}>
+          <div style={{
+            width: 64, height: 64, borderRadius: '50%',
+            border: '3px solid #8b7355', boxShadow: '3px 3px 0 #5a4a30',
+            overflow: 'hidden', background: '#f0d898',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            fontSize: 32,
+          }}>
+            {user?.avatar_url ? (
+              <img
+                src={user.avatar_url}
+                alt=""
+                referrerPolicy="no-referrer"
+                style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                onError={(e) => { e.target.style.display = 'none'; }}
+              />
+            ) : '👤'}
           </div>
-        )}
+          <div style={{
+            fontFamily: "'VT323', monospace", fontSize: 14,
+            color: '#a09060', letterSpacing: 1,
+          }}>
+            Signed in with Google
+          </div>
+        </div>
 
         <div style={{
           fontFamily: "'Press Start 2P', monospace", fontSize: 11,
@@ -87,7 +112,6 @@ export default function CompleteProfileScreen() {
           </div>
         )}
 
-        {/* Username */}
         <div className="dialog-label">Choose your username</div>
         <input
           className="dialog-input"
@@ -99,10 +123,7 @@ export default function CompleteProfileScreen() {
           autoFocus
         />
 
-        {/* Role */}
-        <div className="dialog-label" style={{ marginBottom: 10 }}>
-          Who are you?
-        </div>
+        <div className="dialog-label" style={{ marginBottom: 10 }}>Who are you?</div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 18 }}>
           {ROLES.map((r) => (
             <div
@@ -117,14 +138,14 @@ export default function CompleteProfileScreen() {
               }}
             >
               <div style={{
-                fontFamily: "'Press Start 2P', monospace", fontSize: 9,
-                color: '#4a3a20', letterSpacing: 1, marginBottom: 3,
+                fontFamily: "'Press Start 2P', monospace",
+                fontSize: 9, color: '#4a3a20', letterSpacing: 1, marginBottom: 3,
               }}>
                 {r.label}
               </div>
               <div style={{
-                fontFamily: "'VT323', monospace", fontSize: 15,
-                color: '#8b7355', letterSpacing: 1,
+                fontFamily: "'VT323', monospace",
+                fontSize: 15, color: '#8b7355', letterSpacing: 1,
               }}>
                 {r.desc}
               </div>

@@ -1,32 +1,39 @@
 import { create } from 'zustand';
 
 const useGameStore = create((set) => ({
+  // ── Connection ────────────────────────────────────────────
   connected: false,
   setConnected: (v) => set({ connected: v }),
 
+  // ── Screen ────────────────────────────────────────────────
   screen: 'menu',
   setScreen: (s) => set({ screen: s }),
 
+  // ── Room & Players ────────────────────────────────────────
   room: null,
   myId: null,
+  myRole: null,
+  myCharacter: { suitColor: '#e74c3c', visorColor: '#cce8ff', hat: 'none' },
   setRoom: (r) => set({ room: r }),
   setMyId: (id) => set({ myId: id }),
-
-  myRole: null,
   setMyRole: (r) => set({ myRole: r }),
+  setMyCharacter: (c) => set({ myCharacter: c }),
 
-  // Rejoin token — stored in memory and localStorage
+  // ── Role ──────────────────────────────────────────────────
+  impostorGoals: [],
+  setImpostorGoals: (g) => set({ impostorGoals: g }),
+
+  // ── Rejoin ────────────────────────────────────────────────
   rejoinToken: null,
+  rejoinInfo: null,
   setRejoinToken: (t) => {
     set({ rejoinToken: t });
     if (t) localStorage.setItem('cm_rejoin_token', t);
     else localStorage.removeItem('cm_rejoin_token');
   },
-
-  // Rejoin info — set when disconnect detected mid-game
-  rejoinInfo: null,
   setRejoinInfo: (info) => set({ rejoinInfo: info }),
 
+  // ── Category Vote ─────────────────────────────────────────
   categories: [],
   categoryVoteCounts: {},
   voteSecondsLeft: 15,
@@ -38,41 +45,60 @@ const useGameStore = create((set) => ({
   setMyVote: (v) => set({ myVote: v }),
   setChosenCategory: (c) => set({ chosenCategory: c }),
 
-  currentRound: 1,
-  roundSecondsLeft: 60,
+  // ── Game ──────────────────────────────────────────────────
+  gameSecondsLeft: 480,
   testsPassed: 0,
-  testsTotal: 3,
-  testNames: [],
-  sabotagesDone: 0,
-  sabotages: [],
+  maxTestsPassed: 0,
+  testsTotal: 9,
+  testResults: [],
   aliveCount: 0,
   codeLines: [],
-  setCurrentRound: (r) => set({ currentRound: r }),
-  setRoundSecondsLeft: (s) => set({ roundSecondsLeft: s }),
+  lineAuthors: {},        // lineIndex → { playerId, color, colorName }
+  gameLanguage: 'python',
+  gameTitle: '',
+  gameDescription: '',
+  gameSections: [],
+  fixHints: [],           // [{ testName, line, hint, code }] — civilians only
+  sabotageHints: [],      // [{ testName, line, hint, code }] — impostor only
+  remoteCursors: [],      // [{ playerId, lineIndex, col, color, colorName }]
+
+  setGameSecondsLeft: (s) => set({ gameSecondsLeft: s }),
   setTestsPassed: (n) => set({ testsPassed: n }),
+  setMaxTestsPassed: (n) => set({ maxTestsPassed: n }),
   setTestsTotal: (n) => set({ testsTotal: n }),
-  setTestNames: (names) => set({ testNames: names }),
-  setSabotagesDone: (n) => set({ sabotagesDone: n }),
-  setSabotages: (s) => set({ sabotages: s }),
+  setTestResults: (r) => set({ testResults: r }),
   setAliveCount: (n) => set({ aliveCount: n }),
   setCodeLines: (lines) => set({ codeLines: lines }),
-  updateCodeLine: (idx, content) => set((state) => {
-    const lines = [...state.codeLines];
+  setLineAuthors: (a) => set({ lineAuthors: a }),
+  updateLineAuthor: (idx, author) => set((s) => ({
+    lineAuthors: { ...s.lineAuthors, [idx]: author },
+  })),
+  updateCodeLine: (idx, content) => set((s) => {
+    const lines = [...s.codeLines];
     lines[idx] = content;
     return { codeLines: lines };
   }),
+  setGameLanguage: (l) => set({ gameLanguage: l }),
+  setGameTitle: (t) => set({ gameTitle: t }),
+  setGameDescription: (d) => set({ gameDescription: d }),
+  setGameSections: (s) => set({ gameSections: s }),
+  setFixHints: (h) => set({ fixHints: h }),
+  setSabotageHints: (h) => set({ sabotageHints: h }),
+  setRemoteCursors: (c) => set({ remoteCursors: c }),
 
   editedLines: new Set(),
-  markLineEdited: (idx) => set((state) => ({
-    editedLines: new Set([...state.editedLines, idx]),
+  markLineEdited: (idx) => set((s) => ({
+    editedLines: new Set([...s.editedLines, idx]),
   })),
   clearEditedLines: () => set({ editedLines: new Set() }),
 
+  // ── Emergency / Standup ───────────────────────────────────
   emergencyUsed: false,
   emergencyCaller: null,
   setEmergencyUsed: (v) => set({ emergencyUsed: v }),
   setEmergencyCaller: (n) => set({ emergencyCaller: n }),
 
+  // ── Voting ────────────────────────────────────────────────
   votingPlayers: [],
   voteSecondsLeftPlayer: 30,
   myPlayerVote: null,
@@ -82,19 +108,23 @@ const useGameStore = create((set) => ({
   setMyPlayerVote: (v) => set({ myPlayerVote: v }),
   setEliminatedPlayer: (p) => set({ eliminatedPlayer: p }),
 
+  // ── Chat ──────────────────────────────────────────────────
   chatLog: [],
-  addChatMessage: (msg) => set((state) => ({ chatLog: [...state.chatLog, msg] })),
-  clearChat: () => set({ chatLog: [] }),
+  addChatMessage: (msg) => set((s) => ({ chatLog: [...s.chatLog, msg] })),
 
+  // ── Game Over ─────────────────────────────────────────────
   gameOverData: null,
   setGameOverData: (d) => set({ gameOverData: d }),
 
+  // ── Reconnect ─────────────────────────────────────────────
   reconnecting: false,
   setReconnecting: (v) => set({ reconnecting: v }),
 
+  // ── Spectator ─────────────────────────────────────────────
   isSpectator: false,
   setIsSpectator: (v) => set({ isSpectator: v }),
 
+  // ── Disconnected ──────────────────────────────────────────
   disconnectedPlayerIds: [],
   setDisconnectedPlayerIds: (ids) => set({ disconnectedPlayerIds: ids }),
   addDisconnectedPlayer: (id) => set((s) => ({
@@ -103,30 +133,39 @@ const useGameStore = create((set) => ({
   removeDisconnectedPlayer: (id) => set((s) => ({
     disconnectedPlayerIds: s.disconnectedPlayerIds.filter((x) => x !== id),
   })),
-  // ── Public rooms (server browser) ─────────────────────────────────────
+
+  // ── Countdown ─────────────────────────────────────────────
+  countdown: null,
+  setCountdown: (v) => set({ countdown: v }),
+
+  // ── Public rooms ──────────────────────────────────────────
   publicRooms: [],
   setPublicRooms: (rooms) => set({ publicRooms: rooms }),
 
-  // ── Game settings (received at game_start) ────────────────────────────
-  gameSettings: null,
-  setGameSettings: (s) => set({ gameSettings: s }),
+  // ── Reset ─────────────────────────────────────────────────
   resetGame: () => set({
     myRole: null,
+    impostorGoals: [],
     rejoinToken: null,
     rejoinInfo: null,
     categories: [],
     categoryVoteCounts: {},
     myVote: null,
     chosenCategory: null,
-    currentRound: 1,
-    roundSecondsLeft: 60,
+    gameSecondsLeft: 480,
     testsPassed: 0,
-    testsTotal: 3,
-    testNames: [],
-    sabotagesDone: 0,
-    sabotages: [],
+    maxTestsPassed: 0,
+    testsTotal: 9,
+    testResults: [],
     aliveCount: 0,
     codeLines: [],
+    lineAuthors: {},
+    gameLanguage: 'python',
+    gameTitle: '',
+    gameDescription: '',
+    gameSections: [],
+    fixHints: [],
+    sabotageHints: [],
     editedLines: new Set(),
     emergencyUsed: false,
     emergencyCaller: null,
@@ -138,8 +177,7 @@ const useGameStore = create((set) => ({
     reconnecting: false,
     isSpectator: false,
     disconnectedPlayerIds: [],
-    publicRooms: [],
-    gameSettings: null,
+    countdown: null,
   }),
 }));
 

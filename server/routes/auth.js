@@ -122,17 +122,18 @@ router.post('/register', async (req, res) => {
     const password_hash = await bcrypt.hash(password, 12);
 
     const { data: user, error } = await supabase
-      .from('users')
-      .insert({
+    .from('users')
+    .insert({
         email: email.toLowerCase(),
         username,
         password_hash,
         role: safeRole,
         tier: 'free',
         profile_complete: true,
-      })
-      .select('id, email, username, role, tier, avatar_url, profile_complete')
-      .single();
+        show_tutorial: true,   // ← new
+    })
+    .select('id, email, username, role, tier, avatar_url, profile_complete, show_tutorial')
+    .single();
 
     if (error) throw error;
 
@@ -235,15 +236,16 @@ router.post('/complete-profile', attachUser, requireAuth, async (req, res) => {
     }
 
     const { data: updated } = await supabase
-      .from('users')
-      .update({
+    .from('users')
+    .update({
         username,
         role: safeRole,
         profile_complete: true,
-      })
-      .eq('id', req.user.id)
-      .select('id, email, username, role, tier, avatar_url, profile_complete')
-      .single();
+        show_tutorial: true,   // ← new
+    })
+    .eq('id', req.user.id)
+    .select('id, email, username, role, tier, avatar_url, profile_complete, show_tutorial')
+    .single();
 
     res.json({ user: updated });
   } catch (err) {
@@ -262,10 +264,10 @@ router.get('/me', attachUser, requireAuth, async (req, res) => {
 
     // Also fetch profile_complete from users
     const { data: fullUser } = await supabase
-      .from('users')
-      .select('id, email, username, role, tier, avatar_url, profile_complete')
-      .eq('id', req.user.id)
-      .single();
+    .from('users')
+    .select('id, email, username, role, tier, avatar_url, profile_complete, show_tutorial')
+    .eq('id', req.user.id)
+    .single();
 
     res.json({
       user: fullUser || req.user,
@@ -279,6 +281,14 @@ router.get('/me', attachUser, requireAuth, async (req, res) => {
 
 // ── Logout ────────────────────────────────────────────────────────────────
 router.post('/logout', (_req, res) => {
+  res.json({ success: true });
+});
+
+router.post('/dismiss-tutorial', attachUser, requireAuth, async (req, res) => {
+  await supabase
+    .from('users')
+    .update({ show_tutorial: false })
+    .eq('id', req.user.id);
   res.json({ success: true });
 });
 

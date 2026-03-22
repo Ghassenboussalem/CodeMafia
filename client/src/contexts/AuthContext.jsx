@@ -23,28 +23,23 @@ export function AuthProvider({ children }) {
   }
 
   useEffect(() => {
-    // Check for Google OAuth token in URL query params
-    // This is how Google callback lands back on the frontend
     const params = new URLSearchParams(window.location.search);
     const authToken = params.get('auth_token');
     const isNewUser = params.get('new_user') === '1';
     const authError = params.get('auth_error');
 
     if (authError) {
-      // Clean URL and show error
       window.history.replaceState({}, '', window.location.pathname);
       setLoading(false);
       return;
     }
 
     if (authToken) {
-      // Store token and clean URL immediately
       localStorage.setItem('cm_token', authToken);
       window.history.replaceState({}, '', window.location.pathname);
 
       loadMe().then((user) => {
         if (user && isNewUser && !user.profile_complete) {
-          // Will be picked up by useGameStore screen routing
           window.__needsProfileSetup = true;
         }
         setLoading(false);
@@ -52,7 +47,6 @@ export function AuthProvider({ children }) {
       return;
     }
 
-    // Normal startup — check stored token
     const stored = localStorage.getItem('cm_token');
     if (stored) {
       loadMe().finally(() => setLoading(false));
@@ -117,15 +111,24 @@ export function AuthProvider({ children }) {
     window.location.href = url;
   }, []);
 
+  const dismissTutorial = useCallback(async () => {
+    try {
+      await api.post('/auth/dismiss-tutorial');
+      setUser((prev) => prev ? { ...prev, show_tutorial: false } : prev);
+    } catch {}
+  }, []);
+
   return (
     <AuthContext.Provider value={{
       user, xp, stats, loading,
       register, login, loginWithGoogle,
       completeProfile, logout,
       refreshProfile, upgradeToPro, openBillingPortal,
+      dismissTutorial,
       isLoggedIn: !!user,
       isPro: user?.tier === 'pro',
       needsProfileSetup: user && user.profile_complete === false,
+      shouldShowTutorial: user && user.show_tutorial === true,
     }}>
       {children}
     </AuthContext.Provider>

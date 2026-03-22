@@ -1,41 +1,47 @@
-// Now respects room.settings for round count and duration
+/**
+ * Game engine — no rounds, single 8-minute game timer.
+ * 9 tests total (3 per section), accumulate throughout the game.
+ * Impostor wins by having tests fail at game end.
+ */
 
-const DEFAULT_ROUND_DURATION = 60;
-const DEFAULT_MAX_ROUNDS = 4;
-const VOTE_DURATION = 30;
+const GAME_DURATION       = 8 * 60; // 8 minutes in seconds
+const VOTE_DURATION       = 30;
 const CATEGORY_VOTE_DURATION = 15;
 
-function getRoundDuration(room) {
-  return room.settings?.roundDuration || DEFAULT_ROUND_DURATION;
-}
+function evaluateGameEnd(room) {
+  const passed = room.testsPassed || 0;
 
-function getMaxRounds(room) {
-  return room.settings?.maxRounds || DEFAULT_MAX_ROUNDS;
-}
-
-function evaluateRoundEnd(room) {
-  const maxRounds = getMaxRounds(room);
-  if (room.currentRound >= maxRounds) {
-    if ((room.testsPassed || 0) >= 3) {
-      return { over: true, winner: 'civilians', reason: 'All bugs were fixed in time!' };
-    }
-    return { over: true, winner: 'impostor', reason: `The impostor survived all ${maxRounds} rounds!` };
+  // Civilians win if all 9 tests pass
+  if (passed >= 9) {
+    return { over: true, winner: 'civilians', reason: 'All bugs were fixed!' };
   }
-  return { over: false };
+
+  // Timer expired — impostor survived
+  return {
+    over: true,
+    winner: 'impostor',
+    reason: `Time ran out with ${9 - passed} bug${9 - passed !== 1 ? 's' : ''} remaining!`,
+  };
 }
 
 function evaluateVoteResult(room, eliminated) {
   if (!eliminated) return { over: false };
 
-  if (eliminated.id === room.impostorId) {
-    return { over: true, winner: 'civilians', reason: 'The impostor was caught and voted out!' };
+  // Check all impostor ids (supports multiple impostors)
+  const impostorIds = room.impostorIds || [room.impostorId];
+
+  if (impostorIds.includes(eliminated.id)) {
+    return { over: true, winner: 'civilians', reason: 'The impostor was caught!' };
   }
 
+  // Wrong person — check if impostor now has effective majority
   const remainingAfter = room.players.filter((p) => p.id !== eliminated.id);
-  // Account for multiple impostors
-  const impostorCount = room.settings?.impostorCount || 1;
-  if (remainingAfter.length <= impostorCount + 1) {
-    return { over: true, winner: 'impostor', reason: 'The impostor outlasted the civilians!' };
+  const remainingImpostors = impostorIds.filter((id) =>
+    remainingAfter.find((p) => p.id === id)
+  );
+
+  if (remainingAfter.length <= remainingImpostors.length + 1) {
+    return { over: true, winner: 'impostor', reason: 'The impostor outlasted the team!' };
   }
 
   return { over: false };
@@ -70,11 +76,10 @@ function pickWinningCategory(categoryVotes) {
 }
 
 module.exports = {
-  getRoundDuration,
-  getMaxRounds,
+  GAME_DURATION,
   VOTE_DURATION,
   CATEGORY_VOTE_DURATION,
-  evaluateRoundEnd,
+  evaluateGameEnd,
   evaluateVoteResult,
   tallyVotes,
   pickWinningCategory,

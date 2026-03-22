@@ -69,19 +69,27 @@ function Inner() {
   const setScreen    = useGameStore((s) => s.setScreen);
   const reconnecting = useGameStore((s) => s.reconnecting);
   const connected    = useGameStore((s) => s.connected);
-  const { needsProfileSetup, loading } = useAuth();
+  const { needsProfileSetup, loading, shouldShowTutorial } = useAuth();
 
-  // After Google OAuth, redirect incomplete profiles to setup screen
   useEffect(() => {
-    if (!loading && needsProfileSetup && screen === 'menu') {
+    if (loading) return;
+
+    // Incomplete Google profile → setup screen
+    if (needsProfileSetup && screen === 'menu') {
       setScreen('complete_profile');
+      return;
     }
-    // Also check the global flag set by AuthContext
-    if (!loading && window.__needsProfileSetup) {
+    if (window.__needsProfileSetup) {
       window.__needsProfileSetup = false;
       setScreen('complete_profile');
+      return;
     }
-  }, [loading, needsProfileSetup, screen]);
+
+    // New account → show tutorial
+    if (shouldShowTutorial && screen === 'menu') {
+      setScreen('help');
+    }
+  }, [loading, needsProfileSetup, shouldShowTutorial, screen]);
 
   if (loading) {
     return (

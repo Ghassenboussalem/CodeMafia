@@ -44,6 +44,8 @@ function startRoundTimer(io, room) {
         current.testsPassed = 0;
         current.sabotagesDone = 0;
         current.votes = {};
+        current.currentCode   = [];   // ← reset for new round
+
         await saveRoom(current);
         io.to(room.code).emit('round_start', { round: current.currentRound });
         startRoundTimer(io, current);
