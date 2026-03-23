@@ -55,7 +55,8 @@ export default function LobbyScreen() {
   const [showPicker, setShowPicker] = useState(false);
   const [frame,      setFrame]      = useState(0);
 
-  const canReady = room?.players?.length >= 3;
+  const realPlayers = room?.players?.filter((p) => !p.isBot) || [];
+  const canReady = realPlayers.length >= 1;
   const isHost   = room?.hostId === myId;
 
   // Walking animation
@@ -117,16 +118,22 @@ export default function LobbyScreen() {
 
         {room.players.map((p) => {
           const char = p.character || DEFAULT_CHARACTER;
+          const isBot = p.isBot;
           return (
             <div className="player-row" key={p.id}
               style={{ justifyContent: 'space-between', alignItems: 'center' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, flex: 1 }}>
-                <PixelCharacter
-                  suitColor={char.suitColor} visorColor={char.visorColor}
-                  hat={char.hat} size={4} animate frame={frame}
-                />
+                {isBot ? (
+                  <span style={{ fontSize: 22 }}>🤖</span>
+                ) : (
+                  <PixelCharacter
+                    suitColor={char.suitColor} visorColor={char.visorColor}
+                    hat={char.hat} size={4} animate frame={frame}
+                  />
+                )}
                 <span className="player-name" style={{ color: p.color }}>
                   {p.name}
+                  {isBot && <span style={{ color: '#7aaa7a', fontSize: 10 }}> (AI)</span>}
                   {p.id === myId && <span style={{ color: '#8b7355' }}> (You)</span>}
                 </span>
               </div>
@@ -136,7 +143,7 @@ export default function LobbyScreen() {
                     ? <span style={{ color: '#f5a623' }}>★</span>
                     : p.ready ? <span style={{ color: '#27ae60' }}>✓</span> : null}
                 </span>
-                {isHost && p.id !== myId && (
+                {isHost && p.id !== myId && !isBot && (
                   <button onClick={() => handleKick(p.id)} title={`Kick ${p.name}`}
                     style={{
                       background: '#c0392b', color: '#fff',
@@ -152,7 +159,11 @@ export default function LobbyScreen() {
           );
         })}
 
-        {!canReady && <div className="waiting-text">Waiting for more players...</div>}
+        {realPlayers.length < 3 && (
+          <div className="waiting-text" style={{ color: '#7aaa7a' }}>
+            🤖 AI bots will fill empty slots
+          </div>
+        )}
       </div>
 
       {/* Customize character */}
@@ -183,7 +194,7 @@ export default function LobbyScreen() {
         {ready ? '✓ READY!' : 'READY!'}
       </button>
 
-      {!canReady && <div className="bottom-hint">Need at least 3 players to start</div>}
+      {!canReady && <div className="bottom-hint">Need at least 1 player to start</div>}
     </div>
   );
 }

@@ -1,4 +1,5 @@
 const { getRoom, saveRoom, removeRoom } = require('../rooms/roomManager');
+const { stopBotTick } = require('./botManager');
 
 const gameTimers = new Map();
 
@@ -43,6 +44,7 @@ function startGameTimer(io, room) {
     if ((current.testsPassed || 0) >= 9) {
       clearInterval(timer);
       gameTimers.delete(room.code);
+      stopBotTick(room.code);
       const impostor = current.players.find((p) => p.id === current.impostorId);
       io.to(room.code).emit('game_over', {
         winner: 'civilians',
@@ -58,6 +60,7 @@ function startGameTimer(io, room) {
     if (seconds <= 0) {
       clearInterval(timer);
       gameTimers.delete(room.code);
+      stopBotTick(room.code);
 
       const result = evaluateGameEnd(current);
       const impostor = current.players.find((p) => p.id === current.impostorId);

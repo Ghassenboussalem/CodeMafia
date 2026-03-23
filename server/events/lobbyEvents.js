@@ -9,6 +9,7 @@ const { CATEGORY_VOTE_DURATION } = require('../game/engine');
 const { startGameTimer, clearGameTimer } = require('../game/gameTimer');
 const { getChallengeForCategory } = require('../game/challenges');
 const { getHintsForChallenge } = require('../game/challengeHints');
+const { addBotsToRoom, startBotTick } = require('../game/botManager');
 
 const reconnectTimers = new Map();
 const disconnectedSlots = new Map();
@@ -132,8 +133,25 @@ module.exports = function registerLobbyEvents(io, socket) {
   socket.on('player_ready', async () => {
     const room = await getRoomBySocketId(socket.id);
     if (!room || room.phase !== 'lobby') return;
-    if (room.players.length < 3) return socket.emit('error', { message: 'Need at least 3 players' });
+    // Minimum 1 real player — bots fill the rest
+    if (room.players.filter((p) => !p.isBot).length < 1) {
+      return socket.emit('error', { message: 'Need at least 1 player' });
+    }
+
+    // Inject bots if fewer than 3 total players
+    const realCount = room.players.filter((p) => !p.isBot).length;
+    if (realCount < 3 && room.players.length < 3) {
+      const botsNeeded = 3 - room.players.length;
+      addBotsToRoom(room, botsNeeded);
+      await saveRoom(room);
+      // Let everyone in the room see the updated player list (including bots)
+      io.to(room.code).emit('room_updated', { room });
+    }
+
     const updated = await markReady(room.code, socket.id);
+    // Also mark all bots as ready
+    updated.players.filter((p) => p.isBot).forEach((b) => (b.ready = true));
+    await saveRoom(updated);
     io.to(room.code).emit('room_updated', { room: updated });
     if (updated.players.every((p) => p.ready)) startReadyCountdown(io, updated);
   });
@@ -385,6 +403,8 @@ async function assignRoles(io, room) {
       fixHints,
     });
 
+    // Start bot AI tick (no-op if no bots)
+    startBotTick(io, fresh);
     startGameTimer(io, fresh);
   }, 4000);
 }

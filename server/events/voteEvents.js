@@ -1,6 +1,7 @@
 const { getRoom, saveRoom, removeRoom, getRoomBySocketId } = require('../rooms/roomManager');
 const { tallyVotes, evaluateVoteResult, VOTE_DURATION } = require('../game/engine');
 const { startGameTimer, clearGameTimer } = require('../game/gameTimer');
+const { triggerBotVotes } = require('../game/botManager');
 
 const voteTimers = new Map();
 
@@ -36,10 +37,12 @@ module.exports = function registerVoteEvents(io, socket) {
       await saveRoom(current);
       io.to(room.code).emit('voting_start', {
         players: current.players.map((p) => ({
-          id: p.id, name: p.name, color: p.color, colorName: p.colorName,
+          id: p.id, name: p.name, color: p.color, colorName: p.colorName, isBot: p.isBot || false,
         })),
         duration: VOTE_DURATION,
       });
+      // Trigger bot auto-votes after a human-realistic delay
+      triggerBotVotes(io, current);
       startVoteTimer(io, current);
     }, 3000);
   });
@@ -150,3 +153,10 @@ async function resolveVote(io, roomCode) {
     }, 2500);
   }
 }
+
+// Exported so botManager can trigger early resolution when all bots vote
+async function triggerVoteResolution(io, roomCode) {
+  await resolveVote(io, roomCode);
+}
+
+module.exports = { triggerVoteResolution };

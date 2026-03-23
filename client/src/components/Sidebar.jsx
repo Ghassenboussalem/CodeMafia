@@ -114,6 +114,7 @@ export default function Sidebar() {
       {players.map((p) => {
         const isDisconnected = disconnectedIds.includes(p.id);
         const editorCount    = Object.values(lineAuthors).filter((a) => a?.playerId === p.id).length;
+        const isBot          = p.isBot;
         return (
           <div key={p.id} className="sidebar-player"
             style={{ opacity: isDisconnected ? 0.4 : 1 }}>
@@ -122,8 +123,9 @@ export default function Sidebar() {
             <div style={{ flex: 1 }}>
               <span className="sidebar-player-name"
                 style={{ color: isDisconnected ? '#666' : p.color }}>
-                {p.colorName || p.name}
+                {isBot ? '🤖 ' : ''}{p.colorName || p.name}
                 {p.id === myId ? ' (You)' : ''}
+                {isBot ? ' (AI)' : ''}
                 {isDisconnected ? ' ✗' : ''}
               </span>
               {editorCount > 0 && (
