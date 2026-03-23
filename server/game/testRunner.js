@@ -9,6 +9,12 @@ const RUNNERS = {
   sec_auth_system:     { cmd: 'python',  file: 'security_auth.py' },
   fe_component_system: { cmd: 'node',    file: 'frontend_ui.js' },
   be_api_server:       { cmd: 'node',    file: 'backend_api.js' },
+  // New challenges (v2 pool)
+  event_system:        { cmd: 'python',  file: 'event_system.py' },
+  lru_cache:           { cmd: 'python',  file: 'lru_cache.py' },
+  state_machine:       { cmd: 'python',  file: 'state_machine.py' },
+  graph_traversal:     { cmd: 'python',  file: 'graph_traversal.py' },
+  permission_system:   { cmd: 'python',  file: 'permission_system.py' },
 };
 
 function spawnRunner(cmd, runnerPath, code) {
