@@ -62,6 +62,17 @@ const useGameStore = create((set) => ({
   sabotageHints: [],      // [{ testName, line, hint, code }] — impostor only
   remoteCursors: [],      // [{ playerId, lineIndex, col, color, colorName }]
 
+  // ── Sabotage System ───────────────────────────────────────────
+  sabotagePowers: [],     // [{ type, name, icon, cooldown, duration, desc }]
+  activeSabotage: null,   // { type, duration, endsAt } or null
+  shuffleOffset: 0,       // line number offset during shuffle
+  sabotageCooldowns: {},   // { lights_out: { ready, remainingMs }, ... }
+  quizData: null,         // { question, options, duration } or null
+  quizResult: null,       // { correct, correctIndex } or null
+  quizPenalty: null,      // { wrongCount, totalPenalty } or null
+  activityFeed: [],       // [{ ts, type, ... }]
+  susMarks: [],           // [{ fromId, targetId }]
+
   setGameSecondsLeft: (s) => set({ gameSecondsLeft: s }),
   setTestsPassed: (n) => set({ testsPassed: n }),
   setMaxTestsPassed: (n) => set({ maxTestsPassed: n }),
@@ -85,6 +96,16 @@ const useGameStore = create((set) => ({
   setFixHints: (h) => set({ fixHints: h }),
   setSabotageHints: (h) => set({ sabotageHints: h }),
   setRemoteCursors: (c) => set({ remoteCursors: c }),
+  setSabotagePowers: (p) => set({ sabotagePowers: p }),
+  setActiveSabotage: (s) => set({ activeSabotage: s }),
+  setShuffleOffset: (o) => set({ shuffleOffset: o }),
+  setSabotageCooldowns: (c) => set({ sabotageCooldowns: c }),
+  setQuizData: (q) => set({ quizData: q }),
+  setQuizResult: (r) => set({ quizResult: r }),
+  setQuizPenalty: (p) => set({ quizPenalty: p }),
+  setActivityFeed: (f) => set({ activityFeed: f }),
+  addSusMark: (mark) => set((s) => ({ susMarks: [...s.susMarks, mark] })),
+  clearSusMarks: () => set({ susMarks: [] }),
 
   editedLines: new Set(),
   markLineEdited: (idx) => set((s) => ({
@@ -178,6 +199,15 @@ const useGameStore = create((set) => ({
     isSpectator: false,
     disconnectedPlayerIds: [],
     countdown: null,
+    sabotagePowers: [],
+    activeSabotage: null,
+    shuffleOffset: 0,
+    sabotageCooldowns: {},
+    quizData: null,
+    quizResult: null,
+    quizPenalty: null,
+    activityFeed: [],
+    susMarks: [],
   }),
 }));
 

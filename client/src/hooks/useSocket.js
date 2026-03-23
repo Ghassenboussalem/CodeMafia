@@ -135,11 +135,12 @@ export default function useSocket() {
     });
 
     // ── Role Reveal ───────────────────────────────────────────
-    socket.on('role_assigned', ({ role, impostorGoals, sabotageHints }) => {
+    socket.on('role_assigned', ({ role, impostorGoals, sabotageHints, sabotagePowers }) => {
       const s = useGameStore.getState();
       s.setMyRole(role);
       s.setImpostorGoals(impostorGoals || []);
       s.setSabotageHints(sabotageHints || []);
+      s.setSabotagePowers(sabotagePowers || []);
       s.setScreen('role_reveal');
     });
 
@@ -272,6 +273,54 @@ export default function useSocket() {
 
     socket.on('error', ({ message }) => console.warn('Server error:', message));
 
+    // ── Sabotage Events ───────────────────────────────────────
+    socket.on('sabotage_activated', ({ type, duration, question, options, offset }) => {
+      const s = useGameStore.getState();
+      s.setActiveSabotage({ type, duration, endsAt: Date.now() + duration });
+      if (type === 'quiz' && question) {
+        s.setQuizData({ question, options, duration });
+        s.setQuizResult(null);
+      }
+      if (type === 'shuffle' && offset !== undefined) {
+        s.setShuffleOffset(offset);
+      }
+    });
+
+    socket.on('sabotage_ended', ({ type }) => {
+      const s = useGameStore.getState();
+      s.setActiveSabotage(null);
+      if (type === 'quiz') s.setQuizData(null);
+      if (type === 'shuffle') s.setShuffleOffset(0);
+    });
+
+    socket.on('sabotage_cooldowns', (cooldowns) => {
+      useGameStore.getState().setSabotageCooldowns(cooldowns);
+    });
+
+    socket.on('sabotage_error', ({ message }) => {
+      console.warn('Sabotage error:', message);
+    });
+
+    socket.on('quiz_result', ({ correct, correctIndex }) => {
+      useGameStore.getState().setQuizResult({ correct, correctIndex });
+    });
+
+    socket.on('quiz_penalty', ({ wrongCount, totalPenalty, newSecondsLeft }) => {
+      const s = useGameStore.getState();
+      s.setQuizPenalty({ wrongCount, totalPenalty });
+      s.setGameSecondsLeft(newSecondsLeft);
+      // Clear penalty display after 3s
+      setTimeout(() => useGameStore.getState().setQuizPenalty(null), 3000);
+    });
+
+    socket.on('activity_feed_update', ({ feed }) => {
+      useGameStore.getState().setActivityFeed(feed || []);
+    });
+
+    socket.on('sus_marked', ({ fromId, targetId }) => {
+      useGameStore.getState().addSusMark({ fromId, targetId });
+    });
+
     return () => {
       [
         'connect', 'disconnect',
@@ -286,6 +335,8 @@ export default function useSocket() {
         'vote_recorded', 'vote_result', 'you_were_eliminated',
         'countdown_start', 'countdown_tick', 'countdown_cancelled',
         'public_rooms', 'message_received', 'game_over', 'game_abandoned', 'error',
+        'sabotage_activated', 'sabotage_ended', 'sabotage_cooldowns', 'sabotage_error',
+        'quiz_result', 'quiz_penalty', 'activity_feed_update', 'sus_marked',
       ].forEach((ev) => socket.off(ev));
     };
   }, []);

@@ -320,16 +320,27 @@ async function assignRoles(io, room) {
     const isImpostor = current.impostorIds.includes(p.id);
     const challenge  = getChallengeForCategory(current.chosenCategory);
     const allHints   = getHintsForChallenge(challenge.id);
+
+    // Build fix hints for everyone (impostor gets same hints as civilians)
+    const fixHints = allHints.map((h, i) => ({
+      testName: challenge.tests[i]?.name || '',
+      ...h.fix,
+    }));
+
     io.to(p.id).emit('role_assigned', {
       role:          isImpostor ? 'impostor' : 'civilian',
       teammates:     isImpostor && impostorCount > 1
         ? impostors.filter((i) => i.id !== p.id).map((i) => i.name)
         : [],
       impostorGoals: isImpostor ? challenge.impostorGoals : [],
-      // Per-test sabotage hints — only sent to impostor
-      sabotageHints: isImpostor
-        ? allHints.map((h, i) => ({ testName: challenge.tests[i]?.name || '', ...h.sabotage }))
-        : [],
+      // Impostor gets same fix hints as civilians (stealth — they must figure out sabotage)
+      sabotageHints: [],
+      // Sabotage powers definition (only meaningful for impostor, but sent to all for UI)
+      sabotagePowers: isImpostor ? [
+        { type: 'lights_out', name: 'Lights Out',   icon: '⚡', cooldown: 90,  duration: 20, desc: 'Civilians can only see around their cursor' },
+        { type: 'quiz',       name: 'Quiz Bomb',    icon: '🧩', cooldown: 120, duration: 15, desc: 'Freeze everyone with a pop quiz' },
+        { type: 'shuffle',    name: 'Code Shuffle', icon: '🔀', cooldown: 90,  duration: 25, desc: 'Scramble hint line numbers' },
+      ] : [],
     });
   });
 

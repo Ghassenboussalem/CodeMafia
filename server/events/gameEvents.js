@@ -5,6 +5,10 @@ const { runTests } = require('../game/testRunner');
 // In-memory cursor store (no Redis — cursors are ephemeral)
 const cursorStore = new Map(); // socketId → { playerId, lineIndex, col, color, name }
 
+// Impostor edit cooldown: socketId → lastEditTimestamp
+const impostorLastEdit = new Map();
+const IMPOSTOR_EDIT_COOLDOWN_MS = 3000;
+
 function stripHtml(str) {
   return String(str || '')
     .replace(/<[^>]*>/g, '')
@@ -56,6 +60,16 @@ module.exports = function registerGameEvents(io, socket) {
     if (!room || room.phase !== 'game') return;
     if (typeof lineIndex !== 'number' || typeof content !== 'string') return;
 
+    // Enforce impostor edit cooldown
+    const impostorIds = room.impostorIds || [room.impostorId];
+    if (impostorIds.includes(socket.id)) {
+      const lastEdit = impostorLastEdit.get(socket.id) || 0;
+      if (Date.now() - lastEdit < IMPOSTOR_EDIT_COOLDOWN_MS) {
+        return; // silently drop — impostor can't spam edits
+      }
+      impostorLastEdit.set(socket.id, Date.now());
+    }
+
     const safe = stripHtml(content).slice(0, 500);
 
     if (!room.currentCode) room.currentCode = [...getChallengeForCategory(room.chosenCategory).code];
@@ -82,6 +96,21 @@ module.exports = function registerGameEvents(io, socket) {
       content:   safe,
       author:    room.lineAuthors[lineIndex],
     });
+
+    // Activity feed: log the edit
+    if (!room.activityFeed) room.activityFeed = [];
+    room.activityFeed.push({
+      ts: Date.now(),
+      type: 'edit',
+      playerId: socket.id,
+      playerColor: player ? player.color : '#888',
+      playerName: player ? (player.colorName || player.name) : 'Unknown',
+      lineIndex,
+    });
+    // Keep only last 30 events
+    if (room.activityFeed.length > 30) room.activityFeed = room.activityFeed.slice(-30);
+    await saveRoom(room);
+    io.to(room.code).emit('activity_feed_update', { feed: room.activityFeed.slice(-20) });
   });
 
   socket.on('cast_category_vote', async ({ category } = {}) => {
@@ -124,6 +153,39 @@ module.exports = function registerGameEvents(io, socket) {
       total,
       results,
     };
+
+    // Activity feed: log test changes
+    if (passed !== prevPassed) {
+      if (!room.activityFeed) room.activityFeed = [];
+      // Find which tests changed
+      const prevResults = room.prevTestResults || [];
+      for (let i = 0; i < results.length; i++) {
+        const prev = prevResults[i];
+        const curr = results[i];
+        if (prev && prev.passed && !curr.passed) {
+          // A test BROKE — find who last edited in the relevant area
+          const lastEditor = room.lineAuthors ? Object.values(room.lineAuthors).slice(-1)[0] : null;
+          room.activityFeed.push({
+            ts: Date.now(),
+            type: 'test_broke',
+            testName: curr.name,
+            lastEditorColor: lastEditor?.color || '#888',
+            lastEditorName: lastEditor?.colorName || lastEditor?.playerName || 'Unknown',
+          });
+        } else if (prev && !prev.passed && curr.passed) {
+          room.activityFeed.push({
+            ts: Date.now(),
+            type: 'test_fixed',
+            testName: curr.name,
+          });
+        }
+      }
+      // Store current results for next comparison
+      room.prevTestResults = results.map(r => ({ name: r.name, passed: r.passed }));
+      if (room.activityFeed.length > 30) room.activityFeed = room.activityFeed.slice(-30);
+      await saveRoom(room);
+      io.to(room.code).emit('activity_feed_update', { feed: room.activityFeed.slice(-20) });
+    }
 
     if (passed !== prevPassed) {
       // Results changed — tell everyone

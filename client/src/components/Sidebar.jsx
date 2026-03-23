@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import socket from '../socket';
 import useGameStore from '../store/gameStore';
+import ActivityFeed from './ActivityFeed';
 
 export default function Sidebar() {
   const room             = useGameStore((s) => s.room);
@@ -14,6 +15,7 @@ export default function Sidebar() {
   const lineAuthors      = useGameStore((s) => s.lineAuthors);
   const fixHints         = useGameStore((s) => s.fixHints);
   const sabotageHints    = useGameStore((s) => s.sabotageHints);
+  const shuffleOffset    = useGameStore((s) => s.shuffleOffset);
 
   const [expandedTest, setExpandedTest] = useState(null); // testName of expanded hint
 
@@ -83,7 +85,7 @@ export default function Sidebar() {
             lineHeight:  1.5,
           }}>
             <div style={{ fontSize: 11, color: '#888', marginBottom: 2 }}>
-              Line {hint.line}
+              Line {hint.line + (isImpostor ? 0 : shuffleOffset)}
             </div>
             <div style={{ fontSize: 13, color: isImpostor ? '#f0a0a0' : '#a0cfff', marginBottom: 4 }}>
               {hint.hint}
@@ -177,35 +179,22 @@ export default function Sidebar() {
       )}
 
       {/* ── Impostor Goals (impostor only) ──────────────────── */}
-      {isImpostor && impostorGoals.length > 0 && (
+      {isImpostor && (
         <div style={{ marginTop: 14 }}>
           <div className="sidebar-section-title sabotage-title">
-            Your Mission
+            Stealth Mode
           </div>
           <div style={{
             fontFamily: "'VT323', monospace", fontSize: 13,
             color: '#c88', marginBottom: 6, lineHeight: 1.4,
           }}>
-            Stay hidden. Edit code like you are helping. Subtly break things.
-          </div>
-          {impostorGoals.map((goal, i) => (
-            <div key={i} style={{
-              background: '#2a1a1a', border: '1px solid #c0392b66',
-              padding: '6px 8px', marginBottom: 4,
-              fontFamily: "'VT323', monospace", fontSize: 13, color: '#f0a0a0',
-              lineHeight: 1.4,
-            }}>
-              💀 {goal}
-            </div>
-          ))}
-          <div style={{
-            fontFamily: "'VT323', monospace", fontSize: 12,
-            color: '#e94fa0', marginTop: 4, lineHeight: 1.4,
-          }}>
-            Tip: Make fixes look like accidents. Blend in.
+            You see the same hints as civilians. Edit code like you're helping — but subtly break things. Use your ⚡ sabotage powers wisely.
           </div>
         </div>
       )}
+
+      {/* ── Activity Feed ─────────────────────────────────────── */}
+      <ActivityFeed />
 
       <div className="sidebar-note" style={{ marginTop: 8 }}>
         Tests update live as you edit

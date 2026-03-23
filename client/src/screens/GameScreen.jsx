@@ -5,6 +5,9 @@ import TopBar from '../components/TopBar';
 import Sidebar from '../components/Sidebar';
 import CodeEditor from '../components/CodeEditor';
 import Chat from '../components/Chat';
+import SabotagePanel from '../components/SabotagePanel';
+import QuizOverlay from '../components/QuizOverlay';
+import LightsOutEffect from '../components/LightsOutEffect';
 
 // Detect mobile once (SSR-safe)
 function useIsMobile() {
@@ -220,7 +223,8 @@ export default function GameScreen() {
 
   const showStandup = !!emergencyCaller && votingPlayers.length === 0 && !showResult;
   const showVoting  = votingPlayers.length > 0;
-  const frozen      = showStandup || showVoting || showResult || showBanner;
+  const quizData    = useGameStore((s) => s.quizData);
+  const frozen      = showStandup || showVoting || showResult || showBanner || !!quizData;
 
   return (
     <div style={{
@@ -282,6 +286,11 @@ export default function GameScreen() {
         />
       )}
       {showBanner && <ResumeBanner onDone={() => setShowBanner(false)} />}
+
+      {/* Sabotage UI */}
+      <SabotagePanel />
+      <QuizOverlay />
+      <LightsOutEffect />
     </div>
   );
 }

@@ -10,6 +10,7 @@ const registerLobbyEvents     = require('./events/lobbyEvents');
 const registerGameEvents      = require('./events/gameEvents');
 const registerVoteEvents      = require('./events/voteEvents');
 const registerChatEvents      = require('./events/chatEvents');
+const registerSabotageEvents  = require('./events/sabotageEvents');
 
 const authRoutes   = require('./routes/auth');
 const userRoutes   = require('./routes/users');
@@ -75,6 +76,7 @@ function attachHandlers() {
     registerGameEvents(io, socket);
     registerVoteEvents(io, socket);
     registerChatEvents(io, socket);
+    registerSabotageEvents(io, socket);
 
     socket.on('disconnect', (reason) => {
       console.log(`[-] ${socket.id} (${reason})`);
