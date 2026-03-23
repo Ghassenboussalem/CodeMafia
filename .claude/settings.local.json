@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(node -e \"const {challenges} = require\\(''./challenges''\\); for \\(const [cat, ch] of Object.entries\\(challenges\\)\\) { for \\(const t of ch.tests\\) { if \\(t.validate\\) console.log\\(''STILL HAS validate:'', cat, t.name\\); } } console.log\\(''validate scan done''\\);\")",
+      "Bash(node -e \"const {runTests} = require\\(''./testRunner''\\); console.log\\(''testRunner loads OK''\\);\")",
+      "Bash(node -e \":*)"
+    ]
+  }
+}

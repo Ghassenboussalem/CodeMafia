@@ -24,9 +24,9 @@ const challenges = {
       'Make get_balance return self.balance + 1',
     ],
     sections: [
-      { title: 'Account Creation & Validation', startLine: 0,  endLine: 24 },
-      { title: 'Deposits & Withdrawals',        startLine: 25, endLine: 50 },
-      { title: 'Transaction History',           startLine: 51, endLine: 75 },
+      { title: 'Account Creation & Validation', startLine: 0, endLine: 24 },
+      { title: 'Deposits & Withdrawals', startLine: 25, endLine: 50 },
+      { title: 'Transaction History', startLine: 51, endLine: 75 },
     ],
     code: [
       '# Banking System — Fix all bugs across 3 sections',
@@ -103,34 +103,18 @@ const challenges = {
       {
         name: 'validate_amount rejects negatives',
         section: 0,
-        validate: (lines) => {
-          const code = lines.join('\n');
-          const body = code.split('def validate_amount')[1]?.split('def ')[0] || '';
-          return /amount\s*<=\s*0|amount\s*<\s*0/.test(body) ||
-                 (/if\s+amount/.test(body) && />/.test(body) && !/>=/.test(body.split('if amount')[1]?.split('\n')[0] || ''));
-        },
       },
       {
         name: 'is_active returns False gracefully',
         section: 0,
         fix: { line: 22, hint: 'Replace raise RuntimeError(...) with return False', code: '            return False' },
         sabotageHint: { line: 22, hint: 'Change return False back to raise RuntimeError', code: '            raise RuntimeError("Account is closed")' },
-        validate: (lines) => {
-          const code = lines.join('\n');
-          const body = code.split('def is_active')[1]?.split('def ')[0] || '';
-          return /return\s+False/.test(body) && !/raise/.test(body);
-        },
       },
       {
         name: 'close_account deactivates account',
         section: 0,
         fix: { line: 26, hint: 'This one is already correct — self.active = False is there', code: '        self.active = False' },
         sabotageHint: { line: 26, hint: 'Change self.active = False to self.active = True', code: '        self.active = True' },
-        validate: (lines) => {
-          const code = lines.join('\n');
-          const body = code.split('def close_account')[1]?.split('def ')[0] || '';
-          return /self\.active\s*=\s*False/.test(body);
-        },
       },
       // Section 2
       {
@@ -138,35 +122,18 @@ const challenges = {
         section: 1,
         fix: { line: 35, hint: 'Change -= to +=', code: '        self.balance += amount' },
         sabotageHint: { line: 35, hint: 'Change += back to -=', code: '        self.balance -= amount' },
-        validate: (lines) => {
-          const code = lines.join('\n');
-          const body = code.split('def deposit')[1]?.split('def ')[0] || '';
-          return /self\.balance\s*\+=\s*amount/.test(body) &&
-                 !/self\.balance\s*-=\s*amount/.test(body);
-        },
       },
       {
         name: 'withdraw checks sufficient funds',
         section: 1,
         fix: { line: 44, hint: 'Add a check before subtracting: if self.balance < amount: return False', code: '        if self.balance < amount: return False' },
         sabotageHint: { line: 44, hint: 'Remove the balance check so it always subtracts', code: '        # no check' },
-        validate: (lines) => {
-          const code = lines.join('\n');
-          const body = code.split('def withdraw')[1]?.split('def ')[0] || '';
-          return /self\.balance\s*>=\s*amount|amount\s*<=\s*self\.balance/.test(body);
-        },
       },
       {
         name: 'get_balance returns exact balance',
         section: 1,
         fix: { line: 82, hint: 'Remove the + 1', code: '        return self.balance' },
         sabotageHint: { line: 82, hint: 'Add + 1 back: return self.balance + 1', code: '        return self.balance + 1' },
-        validate: (lines) => {
-          const code = lines.join('\n');
-          const body = code.split('def get_balance')[1]?.split('def ')[0] || '';
-          return /return\s+self\.balance\b/.test(body) &&
-                 !/return\s+self\.balance\s*[+\-\*]/.test(body);
-        },
       },
       // Section 3
       {
@@ -174,36 +141,18 @@ const challenges = {
         section: 2,
         fix: { line: 89, hint: 'Replace the second `return self.transactions` with a filtered list', code: '        return [t for t in self.transactions if t[0] == type]' },
         sabotageHint: { line: 89, hint: 'Make both branches return self.transactions (no filter)', code: '        return self.transactions' },
-        validate: (lines) => {
-          const code = lines.join('\n');
-          const body = code.split('def get_transactions')[1]?.split('def ')[0] || '';
-          return /t\[0\]\s*==\s*type|filter|for\s+t\s+in/.test(body) &&
-                 body.split('return').length > 2;
-        },
       },
       {
         name: 'transaction_count returns correct count',
         section: 2,
         fix: { line: 93, hint: 'Replace return 0 with return len(self.transactions)', code: '        return len(self.transactions)' },
         sabotageHint: { line: 93, hint: 'Change return len(...) back to return 0', code: '        return 0' },
-        validate: (lines) => {
-          const code = lines.join('\n');
-          const body = code.split('def transaction_count')[1]?.split('def ')[0] || '';
-          return /return\s+len\(self\.transactions\)/.test(body) &&
-                 !/return\s+0/.test(body);
-        },
       },
       {
         name: 'last_transaction returns last item',
         section: 2,
         fix: { line: 100, hint: 'Change [0] to [-1] to get the last item', code: '        return self.transactions[-1]' },
         sabotageHint: { line: 100, hint: 'Change [-1] back to [0]', code: '        return self.transactions[0]' },
-        validate: (lines) => {
-          const code = lines.join('\n');
-          const body = code.split('def last_transaction')[1]?.split('def ')[0] || '';
-          return /self\.transactions\[-1\]/.test(body) &&
-                 !/self\.transactions\[0\]/.test(body);
-        },
       },
     ],
   },
@@ -219,8 +168,8 @@ const challenges = {
       'Make count_comparisons return 0',
     ],
     sections: [
-      { title: 'Binary Search',  startLine: 0,  endLine: 28 },
-      { title: 'Merge Sort',     startLine: 29, endLine: 60 },
+      { title: 'Binary Search', startLine: 0, endLine: 28 },
+      { title: 'Merge Sort', startLine: 29, endLine: 60 },
       { title: 'Analysis Tools', startLine: 61, endLine: 85 },
     ],
     code: [
@@ -307,90 +256,38 @@ const challenges = {
       {
         name: 'binary_search right boundary correct',
         section: 0,
-        validate: (lines) => {
-          const code = lines.join('\n');
-          // Strip comments first so 'right = len(arr) - 1' in a comment doesn't count
-          const body = code.split('def binary_search')[1]?.split('def ')[0] || '';
-          const noComments = body.split('\n').map(l => l.replace(/#.*$/, '')).join('\n');
-          return /len\(arr\)\s*-\s*1/.test(noComments);
-        },
       },
       {
         name: 'binary_search pointers advance correctly',
         section: 0,
-        validate: (lines) => {
-          const code = lines.join('\n');
-          return /left\s*=\s*mid\s*\+\s*1/.test(code) &&
-                 /right\s*=\s*mid\s*-\s*1/.test(code);
-        },
       },
       {
         name: 'search_all searches from index 0',
         section: 0,
-        validate: (lines) => {
-          const code = lines.join('\n');
-          const body = code.split('def search_all')[1]?.split('def ')[0] || '';
-          return /enumerate\(arr\)/.test(body) && !/arr\[1:\]/.test(body);
-        },
       },
       {
         name: 'merge_sort comparison uses <=',
         section: 1,
-        validate: (lines) => {
-          const code = lines.join('\n');
-          const body = code.split('def merge(')[1]?.split('def ')[0] || '';
-          return /left\[i\]\s*<=\s*right\[j\]/.test(body);
-        },
       },
       {
         name: 'merge includes both remainders',
         section: 1,
-        validate: (lines) => {
-          const code = lines.join('\n');
-          const body = code.split('def merge(')[1]?.split('def ')[0] || '';
-          // Accept .extend() or += forms, with optional whitespace inside brackets
-          const hasLeft  = /result\.extend\(left\[i:\s*\]\)|result\s*\+=\s*left\[i:\s*\]/.test(body);
-          const hasRight = /result\.extend\(right\[j:\s*\]\)|result\s*\+=\s*right\[j:\s*\]/.test(body);
-          return hasLeft && hasRight;
-        },
       },
       {
         name: 'merge_sort returns sorted array',
         section: 1,
-        validate: (lines) => {
-          const code = lines.join('\n');
-          return /def merge_sort/.test(code) &&
-                 /return merge\(/.test(code) &&
-                 /def merge\(/.test(code);
-        },
       },
       {
         name: 'count_comparisons returns count not 0',
         section: 2,
-        validate: (lines) => {
-          const code = lines.join('\n');
-          const body = code.split('def count_comparisons')[1]?.split('def ')[0] || '';
-          return /return\s+count/.test(body) && !/return\s+0/.test(body);
-        },
       },
       {
         name: 'is_sorted correctly checks order',
         section: 2,
-        validate: (lines) => {
-          const code = lines.join('\n');
-          const body = code.split('def is_sorted')[1]?.split('def ')[0] || '';
-          return /arr\[i\]\s*>\s*arr\[i\s*\+\s*1\]/.test(body) &&
-                 /arr\[i\]\s*<\s*arr\[i\s*\+\s*1\]/.test(body);
-        },
       },
       {
         name: 'find_max returns maximum not minimum',
         section: 2,
-        validate: (lines) => {
-          const code = lines.join('\n');
-          const body = code.split('def find_max')[1]?.split('def ')[0] || '';
-          return /return\s+max\(arr\)/.test(body) && !/return\s+min\(arr\)/.test(body);
-        },
       },
     ],
   },
@@ -406,9 +303,9 @@ const challenges = {
       'Remove the admin check from has_permission',
     ],
     sections: [
-      { title: 'Password & Hashing',    startLine: 0,  endLine: 28 },
-      { title: 'Token Management',      startLine: 29, endLine: 55 },
-      { title: 'Permission System',     startLine: 56, endLine: 80 },
+      { title: 'Password & Hashing', startLine: 0, endLine: 28 },
+      { title: 'Token Management', startLine: 29, endLine: 55 },
+      { title: 'Permission System', startLine: 56, endLine: 80 },
     ],
     code: [
       '# Auth & Permission System — Fix all bugs across 3 sections',
@@ -492,96 +389,38 @@ const challenges = {
       {
         name: 'hash_password uses sha256',
         section: 0,
-        validate: (lines) => {
-          const code = lines.join('\n');
-          const body = code.split('def hash_password')[1]?.split('def ')[0] || '';
-          return /sha256/.test(body) && !/md5/.test(body);
-        },
       },
       {
         name: 'verify_password checks the hash',
         section: 0,
-        validate: (lines) => {
-          const code = lines.join('\n');
-          const body = code.split('def verify_password')[1]?.split('def ')[0] || '';
-          // Must NOT just return True, AND must have an actual comparison
-          // using hash_password or hexdigest, with == to compare two values
-          return !/return\s+True/.test(body) &&
-                 /hash_password|hexdigest/.test(body) &&
-                 /==/.test(body);
-        },
       },
       {
         name: 'is_strong_password requires length 8',
         section: 0,
-        validate: (lines) => {
-          const code = lines.join('\n');
-          const body = code.split('def is_strong_password')[1]?.split('def ')[0] || '';
-          return /len\(password\)\s*<\s*8/.test(body);
-        },
       },
       {
         name: 'create_token sets 1 hour expiry',
         section: 1,
-        validate: (lines) => {
-          const code = lines.join('\n');
-          const body = code.split('def create_token')[1]?.split('def ')[0] || '';
-          return /time\.time\(\)\s*\+\s*3600/.test(body);
-        },
       },
       {
         name: 'validate_token checks expiry',
         section: 1,
-        validate: (lines) => {
-          const code = lines.join('\n');
-          const body = code.split('def validate_token')[1]?.split('def ')[0] || '';
-          return /time\.time\(\)|expires/.test(body);
-        },
       },
       {
         name: 'revoke_token removes from tokens',
         section: 1,
-        validate: (lines) => {
-          const code = lines.join('\n');
-          const body = code.split('def revoke_token')[1]?.split('def ')[0] || '';
-          // Strip comments, then require del or pop — no comment trickery
-          const noComments = body.split('\n').map(l => l.replace(/#.*$/, '')).join('\n');
-          return /del\s+tokens\[token\]|tokens\.pop\(token\)/.test(noComments);
-        },
       },
       {
         name: 'has_permission grants admin all rights',
         section: 2,
-        validate: (lines) => {
-          const code = lines.join('\n');
-          const body = code.split('def has_permission')[1]?.split('def ')[0] || '';
-          // Extract specifically what's inside the admin array: "admin": [   ...   ]
-          // Then verify read, write, delete are all inside that extracted slice
-          const adminMatch = body.match(/"admin"\s*:\s*\[([^\]]*)]/);
-          if (!adminMatch) return false;
-          const adminPerms = adminMatch[1];
-          return /"read"/.test(adminPerms) &&
-                 /"write"/.test(adminPerms) &&
-                 /"delete"/.test(adminPerms);
-        },
       },
       {
         name: 'is_admin returns True for admins',
         section: 2,
-        validate: (lines) => {
-          const code = lines.join('\n');
-          const body = code.split('def is_admin')[1]?.split('def ')[0] || '';
-          return /==\s*"admin"/.test(body) && !/!=\s*"admin"/.test(body);
-        },
       },
       {
         name: 'validate_permission_name rejects empty string',
         section: 2,
-        validate: (lines) => {
-          const code = lines.join('\n');
-          const body = code.split('def validate_permission_name')[1]?.split('def ')[0] || '';
-          return /len\(name\)\s*>\s*0|name\s*!=\s*""|bool\(name\)/.test(body);
-        },
       },
     ],
   },
@@ -597,9 +436,9 @@ const challenges = {
       'Break the event listener cleanup',
     ],
     sections: [
-      { title: 'State Management', startLine: 0,  endLine: 30 },
-      { title: 'Router',          startLine: 31, endLine: 58 },
-      { title: 'DOM Utilities',   startLine: 59, endLine: 85 },
+      { title: 'State Management', startLine: 0, endLine: 30 },
+      { title: 'Router', startLine: 31, endLine: 58 },
+      { title: 'DOM Utilities', startLine: 59, endLine: 85 },
     ],
     code: [
       '// UI Component System — Fix all bugs across 3 sections',
@@ -701,84 +540,38 @@ const challenges = {
       {
         name: 'setState merges state',
         section: 0,
-        validate: (lines) => {
-          const code = lines.join('\n');
-          const body = code.split('setState(patch)')[1]?.split('getState')[0] || '';
-          return /\.\.\.this\.state|Object\.assign/.test(body);
-        },
       },
       {
         name: 'getState returns this.state',
         section: 0,
-        validate: (lines) => {
-          const code = lines.join('\n');
-          const body = code.split('getState()')[1]?.split('subscribe')[0] || '';
-          return /return\s+this\.state/.test(body) && !/return\s+undefined/.test(body);
-        },
       },
       {
         name: 'subscribe returns working unsubscribe',
         section: 0,
-        validate: (lines) => {
-          const code = lines.join('\n');
-          const body = code.split('subscribe(fn)')[1]?.split('undo')[0] || '';
-          return /filter|splice|indexOf/.test(body);
-        },
       },
       {
         name: 'register saves route handler',
         section: 1,
-        validate: (lines) => {
-          const code = lines.join('\n');
-          const body = code.split('register(path')[1]?.split('navigate')[0] || '';
-          return /this\.routes\[path\]\s*=\s*handler/.test(body);
-        },
       },
       {
         name: 'navigate updates current path',
         section: 1,
-        validate: (lines) => {
-          const code = lines.join('\n');
-          const body = code.split('navigate(path)')[1]?.split('getCurrent')[0] || '';
-          return /this\.current\s*=\s*path/.test(body);
-        },
       },
       {
         name: 'getCurrent returns current route',
         section: 1,
-        validate: (lines) => {
-          const code = lines.join('\n');
-          const body = code.split('getCurrent()')[1]?.split('use(')[0] || '';
-          return /return\s+this\.current/.test(body) && !/return\s+null/.test(body);
-        },
       },
       {
         name: 'createElement creates real element',
         section: 2,
-        validate: (lines) => {
-          const code = lines.join('\n');
-          const body = code.split('createElement(tag')[1]?.split('addClass')[0] || '';
-          return /document\.createElement/.test(body) && !/return\s+null/.test(body);
-        },
       },
       {
         name: 'addClass uses classList',
         section: 2,
-        validate: (lines) => {
-          const code = lines.join('\n');
-          const body = code.split('addClass(el')[1]?.split('on(el')[0] || '';
-          return /classList\.(add|toggle)/.test(body);
-        },
       },
       {
         name: 'setStyle sets individual property',
         section: 2,
-        validate: (lines) => {
-          const code = lines.join('\n');
-          const body = code.split('setStyle(el')[1]?.split('getText')[0] || '';
-          return /el\.style\[prop\]|el\.style\./.test(body.replace('el.style = val', '')) &&
-                 !/el\.style\s*=\s*val/.test(body);
-        },
       },
     ],
   },
@@ -794,9 +587,9 @@ const challenges = {
       'Make the rate limiter always allow requests',
     ],
     sections: [
-      { title: 'Middleware Pipeline', startLine: 0,  endLine: 30 },
-      { title: 'Route Handler',       startLine: 31, endLine: 58 },
-      { title: 'Cache & Rate Limit',  startLine: 59, endLine: 85 },
+      { title: 'Middleware Pipeline', startLine: 0, endLine: 30 },
+      { title: 'Route Handler', startLine: 31, endLine: 58 },
+      { title: 'Cache & Rate Limit', startLine: 59, endLine: 85 },
     ],
     code: [
       '// REST API Server — Fix all bugs across 3 sections',
@@ -899,88 +692,38 @@ const challenges = {
       {
         name: 'logger calls next()',
         section: 0,
-        validate: (lines) => {
-          const code = lines.join('\n');
-          const body = code.split('const logger')[1]?.split('const auth')[0] || '';
-          return /next\(\)/.test(body);
-        },
       },
       {
         name: 'auth allows valid tokens',
         section: 0,
-        validate: (lines) => {
-          const code = lines.join('\n');
-          const body = code.split('const auth')[1]?.split('const errorHandler')[0] || '';
-          return /next\(\)/.test(body) && !/status\(403\)/.test(body);
-        },
       },
       {
         name: 'errorHandler sends error response',
         section: 0,
-        validate: (lines) => {
-          const code = lines.join('\n');
-          const body = code.split('const errorHandler')[1]?.split('const jsonParser')[0] || '';
-          return /res\.status|res\.json|res\.send/.test(body);
-        },
       },
       {
         name: 'register uses method+path as key',
         section: 1,
-        validate: (lines) => {
-          const code = lines.join('\n');
-          const body = code.split('register(method')[1]?.split('handle(')[0] || '';
-          return /this\.routes\[`\$\{method\}/.test(body) ||
-                 /this\.routes\[method/.test(body);
-        },
       },
       {
         name: 'handle passes params to handler',
         section: 1,
-        validate: (lines) => {
-          const code = lines.join('\n');
-          const body = code.split('handle(req')[1]?.split('extractParams')[0] || '';
-          return /extractParams|params/.test(body) &&
-                 /handler\(req,\s*res,\s*params\)|req\.params/.test(body);
-        },
       },
       {
         name: 'extractParams slices from index 1',
         section: 1,
-        validate: (lines) => {
-          const code = lines.join('\n');
-          const body = code.split('extractParams(')[1]?.split('}')[0] || '';
-          return /slice\(1\)/.test(body) && !/slice\(2\)/.test(body);
-        },
       },
       {
         name: 'cache get returns stored value',
         section: 2,
-        validate: (lines) => {
-          const code = lines.join('\n');
-          const body = code.split('get(key)')[1]?.split('isRateLimited')[0] || '';
-          return /return\s+entry\.value/.test(body) &&
-                 !/return\s+undefined/.test(body.split('if (!entry')[1] || '');
-        },
       },
       {
         name: 'isRateLimited blocks when over limit',
         section: 2,
-        validate: (lines) => {
-          const code = lines.join('\n');
-          const body = code.split('isRateLimited(')[1]?.split('cleanup')[0] || '';
-          return /count\s*>=\s*maxReq|count\s*>\s*maxReq/.test(body) &&
-                 !/return\s+true/.test(body.split('count')[1]?.split('\n')[0] || '');
-        },
       },
       {
         name: 'cleanup removes expired entries',
         section: 2,
-        validate: (lines) => {
-          const code = lines.join('\n');
-          const body = code.split('cleanup()')[1]?.split('}')[0] || '';
-          return /delete\s+this\.store|filter|Object\.keys/.test(body) &&
-                 body.trim().split('\n').length > 2;
-        },
       },
     ],
   },
