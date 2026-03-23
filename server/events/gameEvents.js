@@ -55,7 +55,7 @@ module.exports = function registerGameEvents(io, socket) {
   });
 
 
-  socket.on('code_change', async ({ lineIndex, content, authorColor } = {}) => {
+  socket.on('code_change', async ({ lineIndex, content, authorColor, version } = {}) => {
     const room = await getRoomBySocketId(socket.id);
     if (!room || room.phase !== 'game') return;
     if (typeof lineIndex !== 'number' || typeof content !== 'string') return;
@@ -73,7 +73,26 @@ module.exports = function registerGameEvents(io, socket) {
     const safe = stripHtml(content).slice(0, 500);
 
     if (!room.currentCode) room.currentCode = [...getChallengeForCategory(room.chosenCategory).code];
+    if (!room.lineVersions) room.lineVersions = {};
     while (room.currentCode.length <= lineIndex) room.currentCode.push('');
+
+    // ── Version check (optimistic concurrency) ───────────────────────
+    const serverVersion = room.lineVersions[lineIndex] || 0;
+    const clientVersion = typeof version === 'number' ? version : -1;
+
+    // If client sends a version and it's stale, reject the edit
+    if (clientVersion >= 0 && clientVersion < serverVersion) {
+      socket.emit('code_reject', {
+        lineIndex,
+        content: room.currentCode[lineIndex],
+        version: serverVersion,
+      });
+      return;
+    }
+
+    // Accept the edit — increment version
+    const newVersion = serverVersion + 1;
+    room.lineVersions[lineIndex] = newVersion;
     room.currentCode[lineIndex] = safe;
 
     // Track which player last edited each line
@@ -94,8 +113,12 @@ module.exports = function registerGameEvents(io, socket) {
       playerId:  socket.id,
       lineIndex,
       content:   safe,
+      version:   newVersion,
       author:    room.lineAuthors[lineIndex],
     });
+
+    // Confirm the new version to the sender too
+    socket.emit('code_accepted', { lineIndex, version: newVersion });
 
     // Activity feed: log the edit
     if (!room.activityFeed) room.activityFeed = [];
@@ -111,6 +134,19 @@ module.exports = function registerGameEvents(io, socket) {
     if (room.activityFeed.length > 30) room.activityFeed = room.activityFeed.slice(-30);
     await saveRoom(room);
     io.to(room.code).emit('activity_feed_update', { feed: room.activityFeed.slice(-20) });
+  });
+
+  // ── Full state resync (client can request, also sent periodically) ──────
+  socket.on('request_full_sync', async () => {
+    const room = await getRoomBySocketId(socket.id);
+    if (!room || room.phase !== 'game') return;
+    const challenge = getChallengeForCategory(room.chosenCategory);
+    const lines = room.currentCode || [...challenge.code];
+    socket.emit('code_sync', {
+      lines,
+      versions: room.lineVersions || {},
+      lineAuthors: room.lineAuthors || {},
+    });
   });
 
   socket.on('cast_category_vote', async ({ category } = {}) => {

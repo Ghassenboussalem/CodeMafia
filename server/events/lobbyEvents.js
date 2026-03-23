@@ -105,6 +105,7 @@ module.exports = function registerLobbyEvents(io, socket) {
       testsPassed: room.testsPassed || 0,
       currentCode: room.currentCode || [...challenge.code],
       lineAuthors: room.lineAuthors || {},
+      lineVersions: room.lineVersions || {},
       secondsLeft: room.gameSecondsLeft || 480,
     });
     socket.to(code.toUpperCase()).emit('player_rejoined', { room, name: slot.name });
@@ -357,6 +358,7 @@ async function assignRoles(io, room) {
       disconnectedPlayers: [],
       currentCode:     [...challenge.code],
       lineAuthors:     {},
+      lineVersions:    {},
       gameSecondsLeft: 480,
     });
     await saveRoom(fresh);
@@ -372,6 +374,7 @@ async function assignRoles(io, room) {
     io.to(room.code).emit('game_start', {
       category:    fresh.chosenCategory,
       code:        fresh.currentCode,
+      lineVersions: {},
       duration:    480,
       sections:    challenge.sections,
       testNames:   challenge.tests.map((t) => ({ name: t.name, section: t.section })),

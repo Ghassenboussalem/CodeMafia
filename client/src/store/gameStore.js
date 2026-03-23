@@ -54,6 +54,7 @@ const useGameStore = create((set) => ({
   aliveCount: 0,
   codeLines: [],
   lineAuthors: {},        // lineIndex → { playerId, color, colorName }
+  lineVersions: {},       // lineIndex → version number (monotonic, server-authoritative)
   gameLanguage: 'python',
   gameTitle: '',
   gameDescription: '',
@@ -83,6 +84,10 @@ const useGameStore = create((set) => ({
   setLineAuthors: (a) => set({ lineAuthors: a }),
   updateLineAuthor: (idx, author) => set((s) => ({
     lineAuthors: { ...s.lineAuthors, [idx]: author },
+  })),
+  setLineVersions: (v) => set({ lineVersions: v }),
+  updateLineVersion: (idx, ver) => set((s) => ({
+    lineVersions: { ...s.lineVersions, [idx]: ver },
   })),
   updateCodeLine: (idx, content) => set((s) => {
     const lines = [...s.codeLines];
@@ -181,6 +186,7 @@ const useGameStore = create((set) => ({
     aliveCount: 0,
     codeLines: [],
     lineAuthors: {},
+    lineVersions: {},
     gameLanguage: 'python',
     gameTitle: '',
     gameDescription: '',

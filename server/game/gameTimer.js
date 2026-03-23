@@ -12,11 +12,13 @@ function clearGameTimer(code) {
 function startGameTimer(io, room) {
   const { GAME_DURATION, evaluateGameEnd } = require('./engine');
   let seconds = GAME_DURATION;
+  let syncTick = 0;
 
   clearGameTimer(room.code);
 
   const timer = setInterval(async () => {
     seconds--;
+    syncTick++;
     io.to(room.code).emit('game_tick', { seconds });
 
     // Civilians win early if all tests pass
@@ -25,6 +27,17 @@ function startGameTimer(io, room) {
       clearInterval(timer);
       gameTimers.delete(room.code);
       return;
+    }
+
+    // ── Periodic full-state resync (every 5 ticks) ────────────────────
+    // Sends authoritative lines+versions to all clients so any drift
+    // self-corrects within 5 seconds. This is the safety net.
+    if (syncTick % 5 === 0 && current.currentCode) {
+      io.to(room.code).emit('code_sync', {
+        lines:       current.currentCode,
+        versions:    current.lineVersions || {},
+        lineAuthors: current.lineAuthors  || {},
+      });
     }
 
     if ((current.testsPassed || 0) >= 9) {

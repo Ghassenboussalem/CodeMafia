@@ -204,6 +204,7 @@ export default function CodeEditor({ frozen = false }) {
   const codeLines     = useGameStore((s) => s.codeLines);
   const language      = useGameStore((s) => s.gameLanguage);
   const lineAuthors   = useGameStore((s) => s.lineAuthors);
+  const lineVersions  = useGameStore((s) => s.lineVersions);
   const remoteCursors = useGameStore((s) => s.remoteCursors);
   const updateLine    = useGameStore((s) => s.updateCodeLine);
   const clearEdited   = useGameStore((s) => s.clearEditedLines);
@@ -214,7 +215,10 @@ export default function CodeEditor({ frozen = false }) {
   const cursorDebounceRef = useRef(null);
   const autoTestRef       = useRef(null);
   const isRemote          = useRef(false);
-  const pendingChanges    = useRef(new Set()); // accumulates changed line indices between debounce intervals
+  const pendingChanges    = useRef(new Set());
+  // Keep a ref to lineVersions so the debounce closure always reads the latest
+  const lineVersionsRef   = useRef({});
+  useEffect(() => { lineVersionsRef.current = lineVersions; }, [lineVersions]);
 
   const initialDoc = codeLines.map(stripHtml).join('\n');
 
@@ -264,7 +268,9 @@ export default function CodeEditor({ frozen = false }) {
             pendingChanges.current.forEach((lineNo) => {
               if (lineNo < view.state.doc.lines) {
                 const content = view.state.doc.line(lineNo + 1).text;
-                socket.emit('code_change', { lineIndex: lineNo, content });
+                // Include the version we're editing from for conflict detection
+                const version = lineVersionsRef.current[lineNo] ?? 0;
+                socket.emit('code_change', { lineIndex: lineNo, content, version });
               }
             });
             pendingChanges.current.clear();
