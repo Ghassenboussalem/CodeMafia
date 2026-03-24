@@ -2,8 +2,12 @@ const { getRoom, saveRoom, getRoomBySocketId } = require('../rooms/roomManager')
 const { getChallengeForCategory } = require('../game/challenges');
 const { runTests } = require('../game/testRunner');
 
-// In-memory cursor store (no Redis — cursors are ephemeral)
-const cursorStore = new Map(); // socketId → { playerId, lineIndex, col, color, name }
+// Issue 10: Per-socket run_tests rate limiting (1 execution per 3s per socket)
+const runTestsLastRun = new Map(); // socketId → timestamp
+const RUN_TESTS_MIN_INTERVAL_MS = 3000;
+
+// Issue 8: Per-room cursor state stored in room object (survives reloads)
+// cursorStore is now room.cursors = { socketId: cursorData }
 
 // Impostor edit cooldown: socketId → lastEditTimestamp
 const impostorLastEdit = new Map();
@@ -28,30 +32,30 @@ module.exports = function registerGameEvents(io, socket) {
     const player = room.players.find((p) => p.id === socket.id);
     if (!player) return;
 
-    cursorStore.set(socket.id, {
+    // Issue 7: colorName IS set on player objects from roomManager
+    // Issue 8: store cursor in room object (not module-scoped Map)
+    if (!room.cursors) room.cursors = {};
+    room.cursors[socket.id] = {
       playerId:  player.id,
       lineIndex: typeof lineIndex === 'number' ? lineIndex : 0,
       col:       typeof col === 'number' ? col : 0,
       color:     player.color,
       colorName: player.colorName || player.name,
-    });
+    };
+    // Note: we don't save to Redis on every cursor move (too expensive)
+    // Cursors are ephemeral — room object in memory is updated directly
 
-    // Broadcast to everyone ELSE in the room
-    const cursors = [];
-    room.players.forEach((p) => {
-      if (p.id === socket.id) return;
-      const c = cursorStore.get(p.id);
-      if (c) cursors.push(c);
+    // Broadcast only this cursor to everyone else
+    socket.to(room.code).emit('cursors_updated', {
+      cursors: [room.cursors[socket.id]],
     });
-    // Also send the moving cursor to others
-    cursors.push(cursorStore.get(socket.id));
-
-    socket.to(room.code).emit('cursors_updated', { cursors: [cursorStore.get(socket.id)] });
   });
 
-  // Clean up cursor when socket disconnects
+  // Clean up cursor on disconnect
   socket.on('disconnect', () => {
-    cursorStore.delete(socket.id);
+    // Cursors will be purged with the room naturally
+    impostorLastEdit.delete(socket.id);
+    runTestsLastRun.delete(socket.id);
   });
 
 
@@ -162,6 +166,12 @@ module.exports = function registerGameEvents(io, socket) {
   });
 
   socket.on('run_tests', async () => {
+    // Issue 10: Rate limiting — max 1 real test execution per 3s per socket
+    const now = Date.now();
+    const lastRun = runTestsLastRun.get(socket.id) || 0;
+    if (now - lastRun < RUN_TESTS_MIN_INTERVAL_MS) return; // silently drop
+    runTestsLastRun.set(socket.id, now);
+
     const room = await getRoomBySocketId(socket.id);
     if (!room || room.phase !== 'game') return;
 

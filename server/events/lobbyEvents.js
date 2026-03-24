@@ -401,6 +401,16 @@ async function assignRoles(io, room) {
       title:       challenge.title,
       description: challenge.description,
       fixHints,
+      // Issue 6: Include full player list so in-game UI has character data
+      players: fresh.players.map((p) => ({
+        id:        p.id,
+        name:      p.name,
+        color:     p.color,
+        colorName: p.colorName,
+        character: p.character || null,
+        isBot:     p.isBot || false,
+        ready:     p.ready || false,
+      })),
     });
 
     // Start bot AI tick (no-op if no bots)

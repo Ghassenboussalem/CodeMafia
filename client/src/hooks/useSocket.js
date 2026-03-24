@@ -146,7 +146,7 @@ export default function useSocket() {
     });
 
     // ── Game Start ────────────────────────────────────────────
-    socket.on('game_start', ({ category, code, lineVersions, duration, sections, testNames, settings, language, title, description, fixHints }) => {
+    socket.on('game_start', ({ category, code, lineVersions, duration, sections, testNames, settings, language, title, description, fixHints, players }) => {
       const s = useGameStore.getState();
       s.setChosenCategory(category);
       s.setCodeLines(cleanLines(code));
@@ -162,9 +162,13 @@ export default function useSocket() {
       s.setGameTitle(title || '');
       s.setGameDescription(description || '');
       s.setFixHints(fixHints || []);
-      s.setAliveCount(s.room?.players?.length || 0);
+      // Issue 6: Update room players with character data forwarded from game_start
+      if (players && players.length > 0 && s.room) {
+        s.setRoom({ ...s.room, players });
+      }
+      s.setAliveCount(players?.length || s.room?.players?.length || 0);
       s.setDisconnectedPlayerIds([]);
-      if (settings && s.room) s.setRoom({ ...s.room, settings });
+      if (settings && s.room) s.setRoom({ ...(s.room), settings });
       s.setScreen('game');
     });
 

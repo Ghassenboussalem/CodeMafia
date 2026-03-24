@@ -23,6 +23,7 @@ def run_tests(code):
             return [{"name": t, "passed": False, "error": "Forbidden: " + bad} for t in TEST_NAMES]
 
     import builtins
+    import collections as _collections
     safe_builtins = {
         '__build_class__': builtins.__build_class__,
         '__name__': '__main__',
@@ -33,10 +34,17 @@ def run_tests(code):
         'ValueError': ValueError, 'TypeError': TypeError,
         'Exception': Exception, 'print': print,
         'isinstance': isinstance, 'super': super,
-        'OrderedDict': __import__('collections').OrderedDict,
+        'OrderedDict': _collections.OrderedDict,
     }
 
-    ns = {'__builtins__': safe_builtins}
+    # Allow only 'collections' imports so player code `from collections import X` works
+    def _safe_import(name, *args, **kwargs):
+        if name == 'collections':
+            return _collections
+        raise ImportError(f"import '{name}' is not allowed in sandbox")
+    safe_builtins['__import__'] = _safe_import
+
+    ns = {'__builtins__': safe_builtins, 'OrderedDict': _collections.OrderedDict}
     try:
         exec(compile(code, '<player>', 'exec'), ns)
     except Exception as e:

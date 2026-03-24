@@ -1,4 +1,5 @@
 import React, { useEffect } from 'react';
+import ErrorBoundary from './components/ErrorBoundary';
 import useSocket from './hooks/useSocket';
 import useGameStore from './store/gameStore';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
@@ -121,7 +122,7 @@ function Inner() {
       {screen === 'vote_category'    && <VoteCategoryScreen />}
       {screen === 'assigning'        && <AssigningScreen />}
       {screen === 'role_reveal'      && <RoleRevealScreen />}
-      {screen === 'game'             && <GameScreen />}
+      {screen === 'game'             && <ErrorBoundary><GameScreen /></ErrorBoundary>}
       {screen === 'spectator'        && <SpectatorScreen />}
       {screen === 'rejoin'           && <RejoinScreen />}
       {screen === 'kicked'           && <KickedScreen />}
