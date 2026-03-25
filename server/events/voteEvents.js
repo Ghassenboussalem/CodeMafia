@@ -159,4 +159,4 @@ async function triggerVoteResolution(io, roomCode) {
   await resolveVote(io, roomCode);
 }
 
-module.exports = { triggerVoteResolution };
+module.exports.triggerVoteResolution = triggerVoteResolution;
