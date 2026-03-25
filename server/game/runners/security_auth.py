@@ -1,3 +1,4 @@
+# pyre-ignore-all-errors
 import json, sys, threading, time as _time
 
 TIMEOUT = 4

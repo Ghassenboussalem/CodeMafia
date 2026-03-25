@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import useGameStore from '../store/gameStore';
+import useTutorialStore from '../store/tutorialStore';
 import { useAuth } from '../contexts/AuthContext';
 import PixelCharacter, { DEFAULT_CHARACTER } from '../components/PixelCharacter';
 import CharacterPicker from '../components/CharacterPicker';
+import socket from '../socket';
 
 const WALK_INTERVAL = 180;
 
@@ -10,6 +12,7 @@ export default function MenuScreen() {
   const setScreen    = useGameStore((s) => s.setScreen);
   const myCharacter  = useGameStore((s) => s.myCharacter);
   const { user, isLoggedIn, isPro } = useAuth();
+  const hasCompletedTutorial = useTutorialStore((s) => s.hasCompletedTutorial);
 
   const [showPicker, setShowPicker] = useState(false);
   const [frame,      setFrame]      = useState(0);
@@ -20,6 +23,11 @@ export default function MenuScreen() {
   }, []);
 
   const char = myCharacter || DEFAULT_CHARACTER;
+
+  function handlePractice() {
+    const playerName = user ? user.username : 'Rookie';
+    socket.emit('create_tutorial', { name: playerName });
+  }
 
   return (
     <div style={{
@@ -65,12 +73,9 @@ export default function MenuScreen() {
       {/* ── Left panel — character ───────────────────────────────────────── */}
       <div style={{
         position: 'absolute',
-        // On desktop: bottom-left. On mobile: hide it (CSS media handles this)
         left: 28, bottom: 80,
         display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10,
-        // Hide below 600px — added via inline media won't work in React; we use className
       }} className="menu-character-panel">
-        {/* Character preview on a little pixel "floor" */}
         <div style={{
           background: '#0d1117',
           border: '3px solid #2a3a4a',
@@ -86,7 +91,6 @@ export default function MenuScreen() {
             animate
             frame={frame}
           />
-          {/* pixel floor line */}
           <div style={{
             width: '100%', height: 3,
             background: 'repeating-linear-gradient(90deg,#3a4a5a 0,#3a4a5a 4px,transparent 4px,transparent 8px)',
@@ -117,6 +121,21 @@ export default function MenuScreen() {
 
       {/* ── Menu buttons ────────────────────────────────────────────────── */}
       <div className="menu-buttons">
+        {/* Practice / Tutorial button — pulsing glow for first-time players */}
+        <button
+          className="btn-big"
+          onClick={handlePractice}
+          style={{
+            background: '#16a085', color: '#fff',
+            boxShadow: !hasCompletedTutorial
+              ? '4px 4px 0 #0a6050, 0 0 20px #16a085'
+              : '4px 4px 0 #0a6050',
+            border: '3px solid #0a6050',
+            animation: !hasCompletedTutorial ? 'tutorialPulse 2s ease-in-out infinite' : 'none',
+          }}
+        >
+          🎯 PRACTICE {!hasCompletedTutorial && <span style={{ fontSize: 8, color: '#7ecba0' }}> ← START HERE</span>}
+        </button>
         <button className="btn-big btn-big-create" onClick={() => setScreen('create')}>
           ⚔ CREATE GAME
         </button>
@@ -132,12 +151,19 @@ export default function MenuScreen() {
           🏆 LEADERBOARD
         </button>
         <button className="btn-big" onClick={() => setScreen('help')}
-          style={{ background: '#16a085', color: '#fff', boxShadow: '4px 4px 0 #0a6050', border: '3px solid #0a6050' }}>
+          style={{ background: '#34495e', color: '#fff', boxShadow: '4px 4px 0 #1a2530', border: '3px solid #1a2530' }}>
           ❓ HOW TO PLAY
         </button>
       </div>
 
-      <div className="bottom-hint">3–5 Players • Find the Impostor</div>
+      <div className="bottom-hint">1–5 Players • Solo Practice Available</div>
+
+      <style>{`
+        @keyframes tutorialPulse {
+          0%, 100% { box-shadow: 4px 4px 0 #0a6050, 0 0 10px #16a085; }
+          50% { box-shadow: 4px 4px 0 #0a6050, 0 0 30px #16a085, 0 0 60px #16a08544; }
+        }
+      `}</style>
     </div>
   );
 }

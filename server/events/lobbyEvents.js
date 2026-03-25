@@ -52,6 +52,111 @@ module.exports = function registerLobbyEvents(io, socket) {
     if (room.settings.isPublic) broadcastPublicRooms(io);
   });
 
+  // ── Tutorial / Practice Mode ────────────────────────────────────────────
+  socket.on('create_tutorial', async ({ name } = {}) => {
+    if (!name || !name.trim()) return socket.emit('error', { message: 'Name is required' });
+    const room = await createRoom(socket.id, name.trim().slice(0, 20), {
+      isPublic: false, isTutorial: true, impostorCount: 1,
+      chatEnabled: true, spectatorAllowed: false,
+    });
+    socket.join(room.code);
+
+    // Add 2 AI bots
+    addBotsToRoom(room, 2);
+    await saveRoom(room);
+
+    // Emit room_created so the client navigates to lobby briefly
+    const me = room.players[0];
+    socket.emit('room_created', { room, rejoinToken: me.rejoinToken });
+
+    // Auto-start: skip lobby wait — immediately assign roles + start game
+    setTimeout(async () => {
+      const current = await getRoom(room.code);
+      if (!current) return;
+
+      // Pick random category
+      const CATEGORIES = ['dsa', 'backend', 'frontend', 'oop', 'security',
+                          'event_system', 'lru_cache', 'state_machine', 'graph_traversal', 'permission_system'];
+      const chosen = CATEGORIES[Math.floor(Math.random() * CATEGORIES.length)];
+      current.chosenCategory = chosen;
+      current.phase = 'assigning';
+      await saveRoom(current);
+
+      // Force human to be civilian — make a bot the impostor
+      const bots = current.players.filter((p) => p.isBot);
+      const impostorBot = bots[Math.floor(Math.random() * bots.length)];
+      current.impostorIds = [impostorBot.id];
+      current.impostorId  = impostorBot.id;
+      current.phase = 'role_reveal';
+      await saveRoom(current);
+
+      const challenge = getChallengeForCategory(chosen);
+      const allHints  = getHintsForChallenge(challenge.id);
+
+      // Send role_assigned to everyone
+      current.players.forEach((p) => {
+        const isImpostor = current.impostorIds.includes(p.id);
+        const fixHints = allHints.map((h, i) => ({
+          testName: challenge.tests[i]?.name || '',
+          ...h.fix,
+        }));
+        io.to(p.id).emit('role_assigned', {
+          role:          isImpostor ? 'impostor' : 'civilian',
+          teammates:     [],
+          impostorGoals: isImpostor ? challenge.impostorGoals : [],
+          sabotageHints: [],
+          sabotagePowers: isImpostor ? [
+            { type: 'lights_out', name: 'Lights Out', icon: '⚡', cooldown: 90, duration: 20, desc: 'Civilians can only see around their cursor' },
+            { type: 'quiz', name: 'Quiz Bomb', icon: '🧩', cooldown: 120, duration: 15, desc: 'Freeze everyone with a pop quiz' },
+            { type: 'shuffle', name: 'Code Shuffle', icon: '🔀', cooldown: 90, duration: 25, desc: 'Scramble hint line numbers' },
+          ] : [],
+        });
+      });
+
+      // Start game after short reveal animation
+      setTimeout(async () => {
+        const fresh = await getRoom(room.code);
+        if (!fresh) return;
+        Object.assign(fresh, {
+          phase: 'game', testsPassed: 0, maxTestsPassed: 0,
+          emergencyUsedBy: [], votes: {}, disconnectedPlayers: [],
+          currentCode: [...challenge.code],
+          lineAuthors: {}, lineVersions: {}, gameSecondsLeft: 300,
+        });
+        await saveRoom(fresh);
+
+        const gameHints = allHints.map((h, i) => ({
+          testName: challenge.tests[i]?.name || '',
+          line: h.fix.line, hint: h.fix.hint, code: h.fix.code,
+        }));
+
+        io.to(room.code).emit('game_start', {
+          category: chosen,
+          code: fresh.currentCode,
+          lineVersions: {},
+          duration: 300,
+          sections: challenge.sections,
+          testNames: challenge.tests.map((t) => ({ name: t.name, section: t.section })),
+          settings: fresh.settings,
+          language: challenge.language,
+          title: challenge.title,
+          description: challenge.description,
+          fixHints: gameHints,
+          isTutorial: true,
+          players: fresh.players.map((p) => ({
+            id: p.id, name: p.name, color: p.color,
+            colorName: p.colorName, character: p.character || null,
+            isBot: p.isBot || false, ready: p.ready || false,
+          })),
+        });
+
+        startBotTick(io, fresh);
+        startGameTimer(io, fresh);
+      }, 3000);
+    }, 1500);
+  });
+
+
   socket.on('join_room', async ({ name, code } = {}) => {
     if (!name || !name.trim()) return socket.emit('error', { message: 'Name is required' });
     if (!code || code.length < 4) return socket.emit('error', { message: 'Invalid room code' });

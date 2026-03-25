@@ -8,3 +8,5 @@ client/.env
 server/.env
 .DS_Store
 *.log
+**/__pycache__/
+*.pyc

@@ -146,7 +146,7 @@ export default function useSocket() {
     });
 
     // ── Game Start ────────────────────────────────────────────
-    socket.on('game_start', ({ category, code, lineVersions, duration, sections, testNames, settings, language, title, description, fixHints, players }) => {
+    socket.on('game_start', ({ category, code, lineVersions, duration, sections, testNames, settings, language, title, description, fixHints, players, isTutorial }) => {
       const s = useGameStore.getState();
       s.setChosenCategory(category);
       s.setCodeLines(cleanLines(code));
@@ -169,6 +169,16 @@ export default function useSocket() {
       s.setAliveCount(players?.length || s.room?.players?.length || 0);
       s.setDisconnectedPlayerIds([]);
       if (settings && s.room) s.setRoom({ ...(s.room), settings });
+
+      // Tutorial mode: trigger the tutorial overlay
+      if (isTutorial) {
+        s.setIsTutorial(true);
+        // Dynamic import to avoid circular deps
+        import('../store/tutorialStore').then(({ default: useTutorialStore }) => {
+          useTutorialStore.getState().startTutorial();
+        });
+      }
+
       s.setScreen('game');
     });
 

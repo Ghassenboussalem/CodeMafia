@@ -46,6 +46,8 @@ const useGameStore = create((set) => ({
   setChosenCategory: (c) => set({ chosenCategory: c }),
 
   // ── Game ──────────────────────────────────────────────────
+  isTutorial: false,
+  setIsTutorial: (v) => set({ isTutorial: v }),
   gameSecondsLeft: 480,
   testsPassed: 0,
   maxTestsPassed: 0,
@@ -174,6 +176,7 @@ const useGameStore = create((set) => ({
     impostorGoals: [],
     rejoinToken: null,
     rejoinInfo: null,
+    isTutorial: false,
     categories: [],
     categoryVoteCounts: {},
     myVote: null,

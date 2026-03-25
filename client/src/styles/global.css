@@ -325,9 +325,9 @@ html, body, #root {
   .game-layout.tab-editor   .game-sidebar,
   .game-layout.tab-editor   .game-chat-panel  { display: none; }
   .game-layout.tab-sidebar  .game-chat-panel  { display: none; }
-  .game-layout.tab-sidebar  > div:nth-child(2) { display: none; } /* editor */
+  .game-layout.tab-sidebar  .game-editor-panel { display: none; } /* editor */
   .game-layout.tab-chat     .game-sidebar     { display: none; }
-  .game-layout.tab-chat     > div:nth-child(2) { display: none; } /* editor */
+  .game-layout.tab-chat     .game-editor-panel { display: none; } /* editor */
 
   /* ── Mobile tab bar (rendered by GameScreen on mobile) ─────── */
   .mobile-tab-bar {

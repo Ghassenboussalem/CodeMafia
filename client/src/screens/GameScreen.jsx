@@ -238,7 +238,7 @@ export default function GameScreen() {
         style={{ flex: 1, overflow: 'hidden' }}
       >
         <Sidebar />
-        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+        <div className="game-editor-panel" style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
           <CodeEditor frozen={frozen} />
         </div>
         <div className="game-chat-panel">
