@@ -298,9 +298,6 @@ function applyBotEdit(io, room, bot, lineIndex, content) {
   if (!room.currentCode) return;
   while (room.currentCode.length <= lineIndex) room.currentCode.push('');
 
-  if (!room.lineVersions) room.lineVersions = {};
-  const newVersion = (room.lineVersions[lineIndex] || 0) + 1;
-  room.lineVersions[lineIndex] = newVersion;
   room.currentCode[lineIndex] = safe;
 
   if (!room.lineAuthors) room.lineAuthors = {};
@@ -309,13 +306,9 @@ function applyBotEdit(io, room, bot, lineIndex, content) {
     color: bot.color, colorName: bot.colorName,
   };
 
-  io.to(room.code).emit('code_change', {
-    playerId:  bot.id,
-    lineIndex,
-    content:   safe,
-    version:   newVersion,
-    author:    room.lineAuthors[lineIndex],
-  });
+  // Broadcast the full updated doc so all clients stay in sync
+  const doc = room.currentCode.join('\n');
+  io.to(room.code).emit('doc_update', { doc, from: bot.id });
 }
 
 function busyIdleEdit(io, room, bot) {

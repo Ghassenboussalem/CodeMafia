@@ -2,6 +2,7 @@
 import json, sys, threading
 
 TIMEOUT = 4
+PER_TEST_TIMEOUT = 2
 
 TEST_NAMES = [
     "add_edge creates adjacency",
@@ -17,6 +18,26 @@ TEST_NAMES = [
 
 DANGEROUS = ['import os', 'import sys', 'import subprocess', 'import socket',
              'import importlib', '__import__', 'open(', '__reduce__']
+
+
+def safe_test(test_fn, name, timeout=PER_TEST_TIMEOUT):
+    """Run a single test with its own timeout so infinite loops don't kill other tests."""
+    result_holder = [None]
+    error_holder = [None]
+    def target():
+        try:
+            result_holder[0] = test_fn()
+        except Exception as e:
+            error_holder[0] = e
+    t = threading.Thread(target=target, daemon=True)
+    t.start()
+    t.join(timeout)
+    if t.is_alive():
+        return {"name": name, "passed": False, "error": "Timeout (possible infinite loop)"}
+    if error_holder[0]:
+        return {"name": name, "passed": False, "error": str(error_holder[0])}
+    return {"name": name, "passed": bool(result_holder[0])}
+
 
 def run_tests(code):
     for bad in DANGEROUS:
@@ -40,7 +61,6 @@ def run_tests(code):
         'defaultdict': _collections.defaultdict,
     }
 
-    # Allow only 'collections' imports so player code `from collections import X` works
     def _safe_import(name, *args, **kwargs):
         if name == 'collections':
             return _collections
@@ -64,85 +84,75 @@ def run_tests(code):
     results = []
 
     # Test 1: add_edge
-    try:
+    def test_0():
         g = Graph()
         g.add_edge(1, 2)
-        results.append({"name": TEST_NAMES[0], "passed": 2 in g.adjacency.get(1, [])})
-    except Exception as e:
-        results.append({"name": TEST_NAMES[0], "passed": False, "error": str(e)})
+        return 2 in g.adjacency.get(1, [])
+    results.append(safe_test(test_0, TEST_NAMES[0]))
 
     # Test 2: bfs visits all
-    try:
+    def test_1():
         g = Graph()
         g.add_edge(1, 2); g.add_edge(1, 3); g.add_edge(2, 4)
         visited = g.bfs(1)
-        results.append({"name": TEST_NAMES[1], "passed": sorted(visited) == [1, 2, 3, 4]})
-    except Exception as e:
-        results.append({"name": TEST_NAMES[1], "passed": False, "error": str(e)})
+        return sorted(visited) == [1, 2, 3, 4]
+    results.append(safe_test(test_1, TEST_NAMES[1]))
 
     # Test 3: bfs level order
-    try:
+    def test_2():
         g = Graph()
         g.add_edge(1, 2); g.add_edge(1, 3); g.add_edge(2, 4); g.add_edge(3, 5)
         visited = g.bfs(1)
-        # 1 must come before 2&3, which must come before 4&5
         ok = (visited.index(1) < visited.index(2) and
               visited.index(1) < visited.index(3) and
               visited.index(2) < visited.index(4) and
               visited.index(3) < visited.index(5))
-        results.append({"name": TEST_NAMES[2], "passed": ok})
-    except Exception as e:
-        results.append({"name": TEST_NAMES[2], "passed": False, "error": str(e)})
+        return ok
+    results.append(safe_test(test_2, TEST_NAMES[2]))
 
     # Test 4: dfs visits all
-    try:
+    def test_3():
         g = Graph()
         g.add_edge(1, 2); g.add_edge(1, 3); g.add_edge(2, 4)
         visited = g.dfs(1)
-        results.append({"name": TEST_NAMES[3], "passed": sorted(visited) == [1, 2, 3, 4]})
-    except Exception as e:
-        results.append({"name": TEST_NAMES[3], "passed": False, "error": str(e)})
+        return sorted(visited) == [1, 2, 3, 4]
+    results.append(safe_test(test_3, TEST_NAMES[3]))
 
     # Test 5: has_path true
-    try:
+    def test_4():
         g = Graph()
         g.add_edge(1, 2); g.add_edge(2, 3)
-        results.append({"name": TEST_NAMES[4], "passed": g.has_path(1, 3) == True})
-    except Exception as e:
-        results.append({"name": TEST_NAMES[4], "passed": False, "error": str(e)})
+        return g.has_path(1, 3) == True
+    results.append(safe_test(test_4, TEST_NAMES[4]))
 
     # Test 6: has_path false
-    try:
+    def test_5():
         g = Graph()
         g.add_edge(1, 2); g.add_edge(3, 4)
-        results.append({"name": TEST_NAMES[5], "passed": g.has_path(1, 4) == False})
-    except Exception as e:
-        results.append({"name": TEST_NAMES[5], "passed": False, "error": str(e)})
+        return g.has_path(1, 4) == False
+    results.append(safe_test(test_5, TEST_NAMES[5]))
 
     # Test 7: cycle detection
-    try:
+    def test_6():
         g = Graph()
-        g.add_edge(1, 2); g.add_edge(2, 3); g.add_edge(3, 1)  # cycle
-        results.append({"name": TEST_NAMES[6], "passed": g.has_cycle() == True})
-    except Exception as e:
-        results.append({"name": TEST_NAMES[6], "passed": False, "error": str(e)})
+        g.add_edge(1, 2); g.add_edge(2, 3); g.add_edge(3, 1)
+        return g.has_cycle() == True
+    results.append(safe_test(test_6, TEST_NAMES[6]))
 
     # Test 8: no cycle
-    try:
+    def test_7():
         g = Graph()
         g.add_edge(1, 2); g.add_edge(2, 3); g.add_edge(1, 3)
-        results.append({"name": TEST_NAMES[7], "passed": g.has_cycle() == False})
-    except Exception as e:
-        results.append({"name": TEST_NAMES[7], "passed": False, "error": str(e)})
+        return g.has_cycle() == False
+    results.append(safe_test(test_7, TEST_NAMES[7]))
 
     # Test 9: shortest_path
-    try:
+    def test_8():
         g = Graph()
         g.add_edge(1, 2); g.add_edge(2, 3); g.add_edge(1, 3)
         length = g.shortest_path(1, 3)
-        results.append({"name": TEST_NAMES[8], "passed": length == 1})
-    except Exception as e:
-        results.append({"name": TEST_NAMES[8], "passed": False, "error": str(e)})
+        return length == 1
+    results.append(safe_test(test_8, TEST_NAMES[8]))
 
     return results
 

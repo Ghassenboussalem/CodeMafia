@@ -1,6 +1,7 @@
 import json, sys, threading
 
 TIMEOUT = 4
+PER_TEST_TIMEOUT = 2
 
 TEST_NAMES = [
     "binary_search right boundary correct",
@@ -16,6 +17,26 @@ TEST_NAMES = [
 
 DANGEROUS = ['import os', 'import sys', 'import subprocess', 'import socket',
              'import importlib', '__import__', 'open(', '__reduce__']
+
+
+def safe_test(test_fn, name, timeout=PER_TEST_TIMEOUT):
+    """Run a single test with its own timeout so infinite loops don't kill other tests."""
+    result_holder = [None]
+    error_holder = [None]
+    def target():
+        try:
+            result_holder[0] = test_fn()
+        except Exception as e:
+            error_holder[0] = e
+    t = threading.Thread(target=target, daemon=True)
+    t.start()
+    t.join(timeout)
+    if t.is_alive():
+        return {"name": name, "passed": False, "error": "Timeout (possible infinite loop)"}
+    if error_holder[0]:
+        return {"name": name, "passed": False, "error": str(error_holder[0])}
+    return {"name": name, "passed": bool(result_holder[0])}
+
 
 def run_tests(code):
     for bad in DANGEROUS:
@@ -46,121 +67,98 @@ def run_tests(code):
     results = []
 
     # Test 1: binary_search right boundary correct
-    # If right = len(arr) (bug), arr[mid] can be out of bounds or search is wrong
-    try:
+    def test_0():
         binary_search = ns.get('binary_search')
         if not binary_search:
             raise Exception("binary_search not found")
-        # Correct: find existing elements
-        r1 = binary_search([1, 3, 5, 7, 9], 1)   # index 0
-        r2 = binary_search([1, 3, 5, 7, 9], 5)   # index 2
-        r3 = binary_search([1, 3, 5, 7, 9], 9)   # index 4
-        r4 = binary_search([1, 3, 5, 7, 9], 6)   # not found → -1
-        results.append({"name": TEST_NAMES[0], "passed": bool(
-            r1 == 0 and r2 == 2 and r3 == 4 and r4 == -1
-        )})
-    except Exception as e:
-        results.append({"name": TEST_NAMES[0], "passed": False, "error": str(e)})
+        r1 = binary_search([1, 3, 5, 7, 9], 1)
+        r2 = binary_search([1, 3, 5, 7, 9], 5)
+        r3 = binary_search([1, 3, 5, 7, 9], 9)
+        r4 = binary_search([1, 3, 5, 7, 9], 6)
+        return r1 == 0 and r2 == 2 and r3 == 4 and r4 == -1
+    results.append(safe_test(test_0, TEST_NAMES[0]))
 
-    # Test 2: binary_search pointers advance correctly (no infinite loop, correct results)
-    try:
+    # Test 2: binary_search pointers advance correctly
+    def test_1():
         binary_search = ns.get('binary_search')
         if not binary_search:
             raise Exception("binary_search not found")
-        r1 = binary_search([2, 4, 6, 8, 10, 12], 10)   # index 4
-        r2 = binary_search([2, 4, 6, 8, 10, 12], 2)    # index 0
-        r3 = binary_search([2, 4, 6, 8, 10, 12], 7)    # not found
-        results.append({"name": TEST_NAMES[1], "passed": bool(
-            r1 == 4 and r2 == 0 and r3 == -1
-        )})
-    except Exception as e:
-        results.append({"name": TEST_NAMES[1], "passed": False, "error": str(e)})
+        r1 = binary_search([2, 4, 6, 8, 10, 12], 10)
+        r2 = binary_search([2, 4, 6, 8, 10, 12], 2)
+        r3 = binary_search([2, 4, 6, 8, 10, 12], 7)
+        return r1 == 4 and r2 == 0 and r3 == -1
+    results.append(safe_test(test_1, TEST_NAMES[1]))
 
-    # Test 3: search_all searches from index 0 (includes first element)
-    try:
+    # Test 3: search_all searches from index 0
+    def test_2():
         search_all = ns.get('search_all')
         if not search_all:
             raise Exception("search_all not found")
-        # With bug (arr[1:]), index 0 match is missed and indices are off by 1
-        r1 = search_all([5, 1, 2, 1, 3], 5)   # should find index 0
-        r2 = search_all([1, 2, 3, 2, 1], 2)   # should find indices 1 and 3
-        results.append({"name": TEST_NAMES[2], "passed": bool(
-            0 in r1 and sorted(r2) == [1, 3]
-        )})
-    except Exception as e:
-        results.append({"name": TEST_NAMES[2], "passed": False, "error": str(e)})
+        r1 = search_all([5, 1, 2, 1, 3], 5)
+        r2 = search_all([1, 2, 3, 2, 1], 2)
+        return 0 in r1 and sorted(r2) == [1, 3]
+    results.append(safe_test(test_2, TEST_NAMES[2]))
 
-    # Test 4: merge_sort comparison uses <= (stable sort with duplicates)
-    try:
+    # Test 4: merge_sort comparison uses <=
+    def test_3():
         merge_sort = ns.get('merge_sort')
         if not merge_sort:
             raise Exception("merge_sort not found")
-        # With < bug, equal elements may be lost or misplaced
         r1 = merge_sort([3, 1, 2, 2, 1])
-        results.append({"name": TEST_NAMES[3], "passed": bool(r1 == [1, 1, 2, 2, 3])})
-    except Exception as e:
-        results.append({"name": TEST_NAMES[3], "passed": False, "error": str(e)})
+        return r1 == [1, 1, 2, 2, 3]
+    results.append(safe_test(test_3, TEST_NAMES[3]))
 
     # Test 5: merge includes both remainders
-    try:
+    def test_4():
         merge_sort = ns.get('merge_sort')
         if not merge_sort:
             raise Exception("merge_sort not found")
         r1 = merge_sort([5, 3, 1, 2, 4])
-        results.append({"name": TEST_NAMES[4], "passed": bool(r1 == [1, 2, 3, 4, 5])})
-    except Exception as e:
-        results.append({"name": TEST_NAMES[4], "passed": False, "error": str(e)})
+        return r1 == [1, 2, 3, 4, 5]
+    results.append(safe_test(test_4, TEST_NAMES[4]))
 
-    # Test 6: merge_sort returns sorted array (larger input)
-    try:
+    # Test 6: merge_sort returns sorted array
+    def test_5():
         merge_sort = ns.get('merge_sort')
         if not merge_sort:
             raise Exception("merge_sort not found")
         arr = [8, 3, 7, 1, 5, 9, 2, 6, 4]
         r1 = merge_sort(arr)
-        results.append({"name": TEST_NAMES[5], "passed": bool(r1 == sorted(arr))})
-    except Exception as e:
-        results.append({"name": TEST_NAMES[5], "passed": False, "error": str(e)})
+        return r1 == sorted(arr)
+    results.append(safe_test(test_5, TEST_NAMES[5]))
 
     # Test 7: count_comparisons returns count not 0
-    try:
+    def test_6():
         count_comparisons = ns.get('count_comparisons')
         if not count_comparisons:
             raise Exception("count_comparisons not found")
-        r1 = count_comparisons([1, 2, 3, 4, 5], 3)   # stops at index 2 → count = 3
-        r2 = count_comparisons([1, 2, 3, 4, 5], 1)   # stops at index 0 → count = 1
-        results.append({"name": TEST_NAMES[6], "passed": bool(r1 == 3 and r2 == 1)})
-    except Exception as e:
-        results.append({"name": TEST_NAMES[6], "passed": False, "error": str(e)})
+        r1 = count_comparisons([1, 2, 3, 4, 5], 3)
+        r2 = count_comparisons([1, 2, 3, 4, 5], 1)
+        return r1 == 3 and r2 == 1
+    results.append(safe_test(test_6, TEST_NAMES[6]))
 
     # Test 8: is_sorted correctly checks order
-    try:
+    def test_7():
         is_sorted = ns.get('is_sorted')
         if not is_sorted:
             raise Exception("is_sorted not found")
-        r1 = is_sorted([1, 2, 3, 4, 5])              # ascending → True
-        r2 = is_sorted([5, 4, 3, 2, 1])              # ascending → False
-        r3 = is_sorted([5, 4, 3, 2, 1], ascending=False)  # descending → True
-        r4 = is_sorted([1, 2, 3, 2, 5])              # not sorted → False
-        results.append({"name": TEST_NAMES[7], "passed": bool(
-            r1 == True and r2 == False and r3 == True and r4 == False
-        )})
-    except Exception as e:
-        results.append({"name": TEST_NAMES[7], "passed": False, "error": str(e)})
+        r1 = is_sorted([1, 2, 3, 4, 5])
+        r2 = is_sorted([5, 4, 3, 2, 1])
+        r3 = is_sorted([5, 4, 3, 2, 1], ascending=False)
+        r4 = is_sorted([1, 2, 3, 2, 5])
+        return r1 == True and r2 == False and r3 == True and r4 == False
+    results.append(safe_test(test_7, TEST_NAMES[7]))
 
     # Test 9: find_max returns maximum not minimum
-    try:
+    def test_8():
         find_max = ns.get('find_max')
         if not find_max:
             raise Exception("find_max not found")
-        r1 = find_max([3, 1, 4, 1, 5, 9, 2, 6])   # max = 9
-        r2 = find_max([7, 2, 8, 4])                 # max = 8
-        r3 = find_max([])                            # empty → None
-        results.append({"name": TEST_NAMES[8], "passed": bool(
-            r1 == 9 and r2 == 8 and r3 is None
-        )})
-    except Exception as e:
-        results.append({"name": TEST_NAMES[8], "passed": False, "error": str(e)})
+        r1 = find_max([3, 1, 4, 1, 5, 9, 2, 6])
+        r2 = find_max([7, 2, 8, 4])
+        r3 = find_max([])
+        return r1 == 9 and r2 == 8 and r3 is None
+    results.append(safe_test(test_8, TEST_NAMES[8]))
 
     return results
 

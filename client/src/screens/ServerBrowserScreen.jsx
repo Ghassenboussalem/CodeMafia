@@ -120,35 +120,40 @@ export default function ServerBrowserScreen() {
     // Request rooms on mount
     socket.emit('get_public_rooms');
 
-    socket.on('public_rooms', ({ rooms: r }) => {
+    const onPublicRooms = ({ rooms: r }) => {
       setRooms(r);
       setLoading(false);
-    });
+    };
 
-    socket.on('room_joined', ({ room, rejoinToken }) => {
+    const onRoomJoined = ({ room, rejoinToken }) => {
       useGameStore.getState().setRoom(room);
       useGameStore.getState().setRejoinToken(rejoinToken);
       setScreen('lobby');
-    });
+    };
 
-    socket.on('spectating', ({ room }) => {
+    const onSpectating = ({ room }) => {
       useGameStore.getState().setRoom(room);
       setScreen('spectator');
-    });
+    };
 
-    socket.on('error', ({ message }) => {
+    const onError = ({ message }) => {
       setError(message);
       setJoiningCode(null);
-    });
+    };
+
+    socket.on('public_rooms', onPublicRooms);
+    socket.on('room_joined', onRoomJoined);
+    socket.on('spectating', onSpectating);
+    socket.on('error', onError);
 
     // Auto-refresh every 5 seconds
     const interval = setInterval(() => socket.emit('get_public_rooms'), 5000);
 
     return () => {
-      socket.off('public_rooms');
-      socket.off('room_joined');
-      socket.off('spectating');
-      socket.off('error');
+      socket.off('public_rooms', onPublicRooms);
+      socket.off('room_joined', onRoomJoined);
+      socket.off('spectating', onSpectating);
+      socket.off('error', onError);
       clearInterval(interval);
     };
   }, []);

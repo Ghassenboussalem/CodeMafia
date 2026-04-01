@@ -49,7 +49,6 @@ export default function useSocket() {
       s.setChosenCategory(category);
       s.setCodeLines(cleanLines(currentCode));
       s.setLineAuthors(lineAuthors || {});
-      s.setLineVersions(lineVersions || {});
       s.setTestsPassed(testsPassed || 0);
       s.setGameSecondsLeft(secondsLeft || 480);
       s.setRejoinInfo(null);
@@ -199,52 +198,23 @@ export default function useSocket() {
     });
 
     // ── Code Sync ─────────────────────────────────────────────
-    socket.on('code_change', ({ lineIndex, content, version, author }) => {
+    // A remote player edited — apply their full doc to our store
+    socket.on('doc_update', ({ doc }) => {
       const s = useGameStore.getState();
-      const clean = String(content || '').replace(/<[^>]*>/g, '');
-      s.updateCodeLine(lineIndex, clean);
-      if (author) s.updateLineAuthor(lineIndex, author);
-      if (typeof version === 'number') s.updateLineVersion(lineIndex, version);
+      const lines = String(doc || '').split('\n').map((l) =>
+        l.replace(/<[^>]*>/g, '')
+      );
+      s.setCodeLines(lines);
     });
 
-    // Server rejected an edit — apply its authoritative version
-    socket.on('code_reject', ({ lineIndex, content, version }) => {
+    // Full resync (e.g. on reconnect / request_full_sync)
+    socket.on('doc_sync', ({ doc, lineAuthors }) => {
       const s = useGameStore.getState();
-      const clean = String(content || '').replace(/<[^>]*>/g, '');
-      s.updateCodeLine(lineIndex, clean);
-      if (typeof version === 'number') s.updateLineVersion(lineIndex, version);
-      // CodeEditor will react to the codeLines change via its useEffect
-    });
-
-    // Periodic full-state resync — safety net against drift
-    socket.on('code_sync', ({ lines, versions, lineAuthors }) => {
-      const s = useGameStore.getState();
-      const currentLines = s.codeLines;
-      let anyDrift = false;
-      const newLines = [...currentLines];
-
-      (lines || []).forEach((serverLine, i) => {
-        const serverVer = versions?.[i] || 0;
-        const clientVer = s.lineVersions?.[i] || 0;
-        // Only apply if server has a newer version (client is behind)
-        if (serverVer > clientVer) {
-          newLines[i] = String(serverLine || '').replace(/<[^>]*>/g, '');
-          anyDrift = true;
-        }
-      });
-
-      if (anyDrift) {
-        s.setCodeLines(newLines);
-        s.setLineVersions({ ...s.lineVersions, ...versions });
-      }
+      const lines = String(doc || '').split('\n').map((l) =>
+        l.replace(/<[^>]*>/g, '')
+      );
+      s.setCodeLines(lines);
       if (lineAuthors) s.setLineAuthors(lineAuthors);
-    });
-
-    // Acknowledge own accepted edit — update local version
-    socket.on('code_accepted', ({ lineIndex, version }) => {
-      if (typeof version === 'number') {
-        useGameStore.getState().updateLineVersion(lineIndex, version);
-      }
     });
 
     // ── Tests ─────────────────────────────────────────────────
@@ -387,14 +357,13 @@ export default function useSocket() {
         'spectating', 'spectator_joined', 'spectator_left',
         'vote_start', 'vote_tick', 'vote_counts_updated', 'vote_end',
         'role_assigned', 'game_start', 'game_tick', 'game_resumed',
-        'code_change', 'tests_updated',
+        'doc_update', 'doc_sync', 'tests_updated',
         'emergency_called', 'voting_start', 'vote_tick_player',
         'vote_recorded', 'vote_result', 'you_were_eliminated',
         'countdown_start', 'countdown_tick', 'countdown_cancelled',
         'public_rooms', 'message_received', 'game_over', 'game_abandoned', 'error',
         'sabotage_activated', 'sabotage_ended', 'sabotage_cooldowns', 'sabotage_error',
         'quiz_result', 'quiz_penalty', 'activity_feed_update', 'sus_marked',
-        'code_reject', 'code_sync', 'code_accepted',
       ].forEach((ev) => socket.off(ev));
     };
   }, []);
